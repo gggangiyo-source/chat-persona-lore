@@ -1,49 +1,36 @@
-/* ============================================================
-   CPL Persona Extension — Semi-Retro Lavender Theme
-   Fonts: Outfit (UI) + DM Mono (code/preview)
-   @import in your HTML <head>:
-   https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Outfit:wght@400;500;600&display=swap
-   ============================================================ */
-
-/* ── Tokens ───────────────────────────────────────────────── */
+/* Chat Persona Lore - semi-retro lavender notebook theme */
 :root {
-    --lav-50:  #f5f3ff;
-    --lav-100: #ede9fe;
-    --lav-200: #ddd6fe;
-    --lav-300: #c4b5fd;
-    --lav-400: #a78bfa;
-    --lav-500: #8b5cf6;
-    --lav-600: #7c3aed;
-    --lav-700: #6d28d9;
-    --lav-900: #2e1065;
-
-    --white:    #ffffff;
-    --gray-50:  #fafafa;
-    --gray-100: #f4f4f5;
-    --gray-200: #e4e4e7;
-    --gray-400: #a1a1aa;
-    --gray-600: #52525b;
-    --gray-800: #27272a;
-
-    --preview-bg:   #1e1b2e;
-    --preview-text: #c4b5fd;
-    --preview-cur:  #a78bfa;
-
-    --font-ui:   'Outfit', system-ui, sans-serif;
-    --font-mono: 'DM Mono', 'Courier New', monospace;
-
-    --r6:  6px;
-    --r8:  8px;
-    --r10: 10px;
+    --cpl-lav-50: #f7f4ff;
+    --cpl-lav-100: #ede9fe;
+    --cpl-lav-200: #ddd6fe;
+    --cpl-lav-300: #c4b5fd;
+    --cpl-lav-400: #a78bfa;
+    --cpl-lav-500: #8b5cf6;
+    --cpl-lav-600: #7c3aed;
+    --cpl-lav-700: #6d28d9;
+    --cpl-lav-900: #2e1065;
+    --cpl-white: #ffffff;
+    --cpl-gray-50: #fafafa;
+    --cpl-gray-100: #f4f4f5;
+    --cpl-gray-200: #e4e4e7;
+    --cpl-gray-400: #a1a1aa;
+    --cpl-gray-600: #52525b;
+    --cpl-gray-800: #27272a;
+    --cpl-preview-bg: #1e1b2e;
+    --cpl-preview-text: #ddd6fe;
+    --cpl-font-ui: "Outfit", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --cpl-font-mono: "DM Mono", "Cascadia Mono", "Courier New", monospace;
+    --cpl-r6: 6px;
+    --cpl-r8: 8px;
+    --cpl-r10: 10px;
 }
 
-/* ── Popup overlay ────────────────────────────────────────── */
 .cpl-popup {
     position: fixed;
     inset: 0;
     z-index: 10000;
-    color: var(--gray-800);
-    font-family: var(--font-ui);
+    color: var(--cpl-gray-800);
+    font-family: var(--cpl-font-ui);
     font-size: 13px;
 }
 
@@ -54,7 +41,6 @@
     backdrop-filter: blur(4px);
 }
 
-/* ── Window ───────────────────────────────────────────────── */
 .cpl-window {
     position: relative;
     display: flex;
@@ -63,29 +49,27 @@
     max-height: min(840px, calc(100vh - 28px));
     margin: 14px auto;
     overflow: hidden;
-    background: var(--white);
-    border: 1.5px solid var(--lav-200);
-    border-radius: var(--r10);
+    border: 1.5px solid var(--cpl-lav-200);
+    border-radius: var(--cpl-r10);
+    background: var(--cpl-white);
     box-shadow:
-        0 2px 0 var(--lav-200),
+        0 2px 0 var(--cpl-lav-200),
         0 8px 32px rgba(139, 92, 246, 0.10),
         0 2px 8px rgba(139, 92, 246, 0.06);
 }
 
-/* Remove original gold stripe */
 .cpl-window::before {
     display: none;
 }
 
-/* ── Title bar ────────────────────────────────────────────── */
 .cpl-topbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
     padding: 9px 14px;
-    background: var(--lav-100);
-    border-bottom: 1.5px solid var(--lav-200);
+    border-bottom: 1.5px solid var(--cpl-lav-200);
+    background: var(--cpl-lav-100);
 }
 
 .cpl-brand,
@@ -101,16 +85,15 @@
     place-items: center;
     width: 24px;
     height: 24px;
-    background: var(--lav-400);
-    border-radius: var(--r6);
-    color: var(--white);
-    border: none;
+    border-radius: var(--cpl-r6);
+    color: var(--cpl-white);
+    background: var(--cpl-lav-400);
 }
 
 .cpl-brand h3 {
     margin: 0;
-    color: var(--lav-700);
-    font-family: var(--font-ui);
+    color: var(--cpl-lav-700);
+    font-family: var(--cpl-font-ui);
     font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.01em;
@@ -118,52 +101,51 @@
 
 .cpl-brand p {
     margin: 0;
-    color: var(--lav-400);
-    font-family: var(--font-mono);
+    color: var(--cpl-lav-600);
+    font-family: var(--cpl-font-mono);
     font-size: 11px;
 }
 
-/* ── Token pill ───────────────────────────────────────────── */
 .cpl-token-pill {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
     min-width: 90px;
     padding: 3px 10px;
-    border: 1.5px solid var(--lav-200);
+    border: 1.5px solid var(--cpl-lav-200);
     border-radius: 999px;
-    color: var(--lav-700);
+    color: var(--cpl-lav-700);
     text-align: center;
-    font-family: var(--font-mono);
+    font-family: var(--cpl-font-mono);
     font-size: 11px;
-    background: var(--white);
+    background: var(--cpl-white);
 }
 
 .cpl-token-pill::before {
-    content: '';
+    content: "";
     display: inline-block;
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--lav-400);
+    background: var(--cpl-lav-400);
     flex-shrink: 0;
 }
 
-/* ── Shared button base ───────────────────────────────────── */
 .cpl-icon-btn,
 .cpl-button,
 .cpl-preset,
 .cpl-mini-button,
 .cpl-saved-apply,
 .cpl-saved-delete {
-    background: var(--lav-100);
-    border: 1.5px solid var(--lav-200);
-    color: var(--lav-700);
+    border: 1.5px solid var(--cpl-lav-200);
+    border-radius: var(--cpl-r6);
+    color: var(--cpl-lav-700);
+    background: var(--cpl-lav-100);
     cursor: pointer;
-    font-family: var(--font-ui);
+    font-family: var(--cpl-font-ui);
     font-size: 12px;
     font-weight: 500;
-    border-radius: var(--r6);
     transition: background 100ms, border-color 100ms, color 100ms;
 }
 
@@ -187,7 +169,6 @@
     justify-content: center;
     gap: 6px;
     padding: 0 12px;
-    font-weight: 500;
 }
 
 .cpl-preset {
@@ -197,7 +178,7 @@
     width: 100%;
     padding: 5px 8px;
     text-align: left;
-    font-family: var(--font-mono);
+    font-family: var(--cpl-font-mono);
     font-size: 11.5px;
     font-weight: 400;
 }
@@ -208,38 +189,22 @@
 .cpl-mini-button:hover,
 .cpl-saved-apply:hover,
 .cpl-saved-delete:hover {
-    background: var(--lav-200);
-    border-color: var(--lav-300);
-    color: var(--lav-900);
+    border-color: var(--cpl-lav-300);
+    color: var(--cpl-lav-900);
+    background: var(--cpl-lav-200);
 }
 
-/* Primary action button variant — add this class for main CTA */
-.cpl-button-primary {
-    background: var(--lav-500);
-    border-color: var(--lav-600);
-    color: var(--white);
-}
-
-.cpl-button-primary:hover {
-    background: var(--lav-600);
-    border-color: var(--lav-700);
-    color: var(--white);
-}
-
-/* Danger */
 .cpl-danger {
-    background: none;
-    border-color: var(--lav-200);
-    color: var(--gray-400);
+    color: var(--cpl-gray-400);
+    background: transparent;
 }
 
 .cpl-danger:hover {
-    background: #fff1f2;
     border-color: #fca5a5;
-    color: #f87171;
+    color: #dc2626;
+    background: #fff1f2;
 }
 
-/* ── Body layout ──────────────────────────────────────────── */
 .cpl-body {
     display: grid;
     grid-template-columns: 220px minmax(0, 1fr);
@@ -254,29 +219,26 @@
     padding: 12px 10px;
 }
 
-/* ── Sidebar ──────────────────────────────────────────────── */
 .cpl-sidebar {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    border-right: 1.5px solid var(--lav-200);
-    background: var(--lav-50);
+    border-right: 1.5px solid var(--cpl-lav-200);
+    background: var(--cpl-lav-50);
 }
 
-/* ── Main ─────────────────────────────────────────────────── */
 .cpl-main {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    background: var(--white);
+    background: var(--cpl-white);
 }
 
-/* ── Cards ────────────────────────────────────────────────── */
 .cpl-card,
 .cpl-field {
-    background: var(--white);
-    border: 1.5px solid var(--lav-200);
-    border-radius: var(--r8);
+    border: 1.5px solid var(--cpl-lav-200);
+    border-radius: var(--cpl-r8);
+    background: var(--cpl-white);
 }
 
 .cpl-card {
@@ -287,49 +249,47 @@
 }
 
 .cpl-card-title {
+    margin-bottom: 2px;
+    padding: 0 2px;
+    color: var(--cpl-lav-500);
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--lav-400);
-    padding: 0 2px;
-    margin-bottom: 2px;
 }
 
 .cpl-card-note,
 .cpl-empty {
-    color: var(--gray-400);
+    color: var(--cpl-gray-400);
+    font-family: var(--cpl-font-mono);
     font-size: 11.5px;
-    font-family: var(--font-mono);
     line-height: 1.4;
 }
 
-/* ── Toggle switch ────────────────────────────────────────── */
 .cpl-switch {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 5px 8px;
-    border: 1.5px solid var(--lav-200);
-    border-radius: var(--r6);
-    color: var(--gray-600);
-    background: var(--lav-50);
+    border: 1.5px solid var(--cpl-lav-200);
+    border-radius: var(--cpl-r6);
+    color: var(--cpl-gray-600);
+    background: var(--cpl-lav-50);
     font-size: 12px;
 }
 
 .cpl-switch input {
     width: 13px;
     height: 13px;
-    accent-color: var(--lav-500);
+    accent-color: var(--cpl-lav-500);
 }
 
-/* ── Labels & form controls ───────────────────────────────── */
 .cpl-card label,
 .cpl-field {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    color: var(--gray-600);
+    color: var(--cpl-gray-600);
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.04em;
@@ -342,11 +302,11 @@
     width: 100%;
     min-height: 30px;
     box-sizing: border-box;
-    border: 1.5px solid var(--lav-200);
-    border-radius: var(--r6);
-    color: var(--gray-800);
-    background: var(--lav-50);
-    font-family: var(--font-mono);
+    border: 1.5px solid var(--cpl-lav-200);
+    border-radius: var(--cpl-r6);
+    color: var(--cpl-gray-800);
+    background: var(--cpl-lav-50);
+    font-family: var(--cpl-font-mono);
     font-size: 12px;
     transition: border-color 100ms, background 100ms;
 }
@@ -358,7 +318,6 @@
 
 .cpl-field {
     padding: 10px;
-    border-radius: var(--r8);
 }
 
 .cpl-field input,
@@ -372,8 +331,8 @@
 .cpl-field input:focus,
 .cpl-field textarea:focus {
     outline: none;
-    border-color: var(--lav-400);
-    background: var(--white);
+    border-color: var(--cpl-lav-400);
+    background: var(--cpl-white);
 }
 
 .cpl-field textarea {
@@ -385,21 +344,19 @@
 .cpl-field textarea::placeholder,
 .cpl-field input::placeholder,
 .cpl-card input::placeholder {
-    color: var(--gray-400);
+    color: var(--cpl-gray-400);
 }
 
 .cpl-title-field input {
     min-height: 34px;
 }
 
-/* ── Field grid ───────────────────────────────────────────── */
 .cpl-field-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
 }
 
-/* ── Save row ─────────────────────────────────────────────── */
 .cpl-save-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 30px;
@@ -413,7 +370,6 @@
     padding: 0;
 }
 
-/* ── Saved presets list ───────────────────────────────────── */
 .cpl-saved-list {
     display: flex;
     flex-direction: column;
@@ -433,9 +389,9 @@
     min-width: 0;
     min-height: 28px;
     padding: 0 8px;
-    font-family: var(--font-mono);
-    font-weight: 400;
+    font-family: var(--cpl-font-mono);
     font-size: 11.5px;
+    font-weight: 400;
     text-align: left;
 }
 
@@ -452,25 +408,24 @@
     height: 28px;
 }
 
-/* ── Preview pane ─────────────────────────────────────────── */
 .cpl-preview-wrap {
-    border: 1.5px solid var(--lav-200);
-    border-radius: var(--r8);
     overflow: hidden;
+    border: 1.5px solid var(--cpl-lav-200);
+    border-radius: var(--cpl-r8);
 }
 
 .cpl-preview-bar {
-    background: var(--lav-100);
-    border-bottom: 1.5px solid var(--lav-200);
-    padding: 5px 10px;
     display: flex;
     align-items: center;
     gap: 6px;
+    padding: 5px 10px;
+    border-bottom: 1.5px solid var(--cpl-lav-200);
+    color: var(--cpl-lav-500);
+    background: var(--cpl-lav-100);
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.07em;
     text-transform: uppercase;
-    color: var(--lav-500);
 }
 
 .cpl-preview {
@@ -481,51 +436,22 @@
     padding: 10px 12px;
     border: none;
     border-radius: 0;
-    color: var(--preview-text);
-    background: var(--preview-bg);
-    font-family: var(--font-mono);
+    color: var(--cpl-preview-text);
+    white-space: pre-wrap;
+    background: var(--cpl-preview-bg);
+    font-family: var(--cpl-font-mono);
     font-size: 12px;
     line-height: 1.6;
-    white-space: pre-wrap;
 }
 
-/* Blinking cursor in preview */
-.cpl-preview-cursor {
-    display: inline-block;
-    width: 7px;
-    height: 13px;
-    background: var(--preview-cur);
-    vertical-align: middle;
-    animation: cpl-blink 1s step-end infinite;
-}
-
-@keyframes cpl-blink {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: 0; }
-}
-
-/* ── Footer ───────────────────────────────────────────────── */
 .cpl-footer {
-    padding: 8px 14px;
-    border-top: 1.5px solid var(--lav-200);
-    background: var(--lav-50);
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 6px;
+    padding: 8px 0 0;
 }
 
-/* ── Section labels (sidebar) ─────────────────────────────── */
-.cpl-section-label {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--lav-400);
-    padding: 0 4px;
-}
-
-/* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 840px) {
     .cpl-window {
         width: calc(100vw - 16px);
@@ -540,13 +466,13 @@
 
     .cpl-sidebar {
         border-right: none;
-        border-bottom: 1.5px solid var(--lav-200);
+        border-bottom: 1.5px solid var(--cpl-lav-200);
     }
 
     .cpl-topbar,
     .cpl-footer {
-        flex-direction: column;
         align-items: stretch;
+        flex-direction: column;
     }
 
     .cpl-top-actions {

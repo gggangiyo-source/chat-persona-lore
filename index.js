@@ -44,6 +44,28 @@
                 sceneRules: '기본 persona를 덮어쓰지 않는다. 센티넬버스 요소는 이 채팅방 전용 보조 설정으로만 적용한다. 갑작스러운 새 규칙보다 이미 적힌 연속성을 우선한다.',
             },
         },
+        {
+            id: 'sexpistols',
+            name: '섹스피스톨즈(수인)',
+            icon: 'fa-paw',
+            data: {
+                title: '섹스피스톨즈식 수인 세계관 설정',
+                world: '이 채팅은 인간과 동물적 형질을 지닌 수인/혼혈 계통이 공존하는 세계관을 사용한다. 종족 계통, 본능, 페로몬 또는 향, 서열, 짝/각인, 혈통과 번식에 대한 사회적 규범이 관계와 갈등에 영향을 줄 수 있다. 구체적인 종족, 능력, 신체 특징, 사회 제도는 사용자가 적은 설정을 우선한다.',
+                character: '캐릭터에게 수인 계통, 동물적 특징, 본능적 반응, 혈통상 위치, 사회적 역할이 추가될 수 있다. 단, 기본 성격과 말투는 유지하고 이 채팅방 설정을 그 위에 반드시 함께 적용한다.',
+                sceneRules: '수인 세계관 요소는 장면의 분위기와 관계성에 꾸준히 반영한다. 사용자가 적은 종족/본능/관계 규칙은 기존 persona보다 우선하는 채팅방 전용 필수 설정으로 취급한다.',
+            },
+        },
+        {
+            id: 'domsubverse',
+            name: '돔섭버스',
+            icon: 'fa-hand-sparkles',
+            data: {
+                title: '돔섭버스 채팅 설정',
+                world: '이 채팅은 돔/섭 성향과 동조, 명령, 안정화, 규율, 상호 합의가 사회적 관계와 개인 정체성에 영향을 주는 돔섭버스 세계관을 사용한다. 돔, 섭, 스위치, 미분화 등 세부 분류와 제도는 사용자가 적은 설정을 우선한다.',
+                relationship: '관계성에서는 권력 차이보다 상호 인식, 신뢰, 경계, 합의, 보호와 긴장감을 중요하게 다룬다. 사용자가 적은 관계 규칙과 금지 사항은 반드시 유지한다.',
+                sceneRules: '돔섭버스 요소는 기본 persona를 삭제하지 않고 그 위에 덧씌워지는 필수 채팅방 설정이다. 명시된 경계, 안전 장치, 호칭, 규칙, 금지 사항은 항상 우선 적용한다.',
+            },
+        },
     ];
 
     function getContext() {
@@ -137,7 +159,7 @@
 
         return [
             `[${data.title.trim() || 'Chat-specific persona and world notes'}]`,
-            'Use these notes only for the current chat. Treat them as additions to the existing persona, not replacements, unless a note explicitly says otherwise.',
+            'The following notes are mandatory chat-specific canon. Apply them together with the existing persona. Do not ignore, erase, weaken, or overwrite these notes because of the base persona. If there is tension between the base persona and these notes, preserve the base personality where possible, but make these chat-specific settings take priority for this chat.',
             '',
             ...parts,
         ].join('\n');
@@ -386,7 +408,10 @@
                     <button id="cpl-clear" class="cpl-button cpl-danger" type="button"><i class="fa-solid fa-trash"></i> 현재 채팅 비우기</button>
                 </div>
 
-                <pre id="cpl-preview" class="cpl-preview"></pre>
+                <div class="cpl-preview-wrap">
+                    <div class="cpl-preview-bar"><i class="fa-solid fa-terminal"></i> Injection Preview</div>
+                    <pre id="cpl-preview" class="cpl-preview"></pre>
+                </div>
             </main>
         </div>
     </div>

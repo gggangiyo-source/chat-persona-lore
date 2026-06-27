@@ -6,7 +6,7 @@ It does not edit your base persona. Instead, it saves extra notes per chat and i
 
 ## What It Is For
 
-- Add a world setting that applies only to the current chat.
+- Add a world setting that must apply to the current chat.
 - Add temporary or alternate character settings.
 - Add user persona additions for one room.
 - Keep relationship dynamics, tone rules, and continuity notes separate from the base persona.
@@ -39,8 +39,14 @@ The popup includes built-in draft buttons for:
 
 - Omegaverse
 - Sentinelverse
+- Sex Pistols-style furry / therian setting
+- Dom/sub verse
 
 You can also enter your own settings, type a preset name, and save the current form as a reusable preset. Saved presets can be applied or deleted from the popup.
+
+## Prompt Priority
+
+The injected prompt tells the model to treat Chat Persona Lore entries as mandatory chat-specific canon. The base persona should still be preserved where possible, but these chat-specific settings should not be ignored, erased, weakened, or overwritten by the base persona.
 
 ## Injection Defaults
 

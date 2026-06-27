@@ -480,3 +480,20 @@
         justify-content: space-between;
     }
 }
+
+.cpl-button.cpl-primary {
+    background: var(--SmartThemeQuoteColor, #7b68ee);
+    color: #fff;
+    font-weight: 600;
+}
+
+.cpl-button.cpl-unsaved {
+    background: var(--SmartThemeQuoteColor, #e8a020);
+    color: #fff;
+    animation: cpl-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes cpl-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.75; }
+}

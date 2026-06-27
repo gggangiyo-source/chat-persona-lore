@@ -1,8 +1,8 @@
 # Chat Persona Lore
 
-Chat Persona Lore is a small SillyTavern extension for chat-specific persona and world notes.
+Chat Persona Lore is a SillyTavern extension for chat-specific persona and world notes.
 
-It does not edit your base persona. Instead, it saves extra notes per chat and injects them into the generation prompt through SillyTavern's extension prompt API.
+It does not edit your base persona. Instead, it saves extra notes per chat and injects them into the generation prompt through SillyTavern's extension prompt API. It opens from the magic-wand Extensions menu beside the message input area.
 
 ## What It Is For
 
@@ -14,18 +14,32 @@ It does not edit your base persona. Instead, it saves extra notes per chat and i
 
 ## Install
 
-1. Upload this folder as the root of a GitHub repository.
+1. Create a GitHub repository.
+2. Upload the contents of this folder to the repository root.
+   - `manifest.json` must be at the top level of the repository.
+   - Do not upload it as `outputs/chat-persona-lore/manifest.json`.
 2. In SillyTavern, open Extensions.
 3. Use Install Extension and paste the GitHub repository URL.
 4. Refresh SillyTavern.
-5. Open Extensions settings and find Chat Persona Lore.
+5. Click the magic-wand Extensions menu beside the message input and open Chat Persona Lore.
 
 ## Usage
 
 1. Open a chat.
-2. Fill in any fields you want: World Setting, Character Notes, User Notes, Relationship, Scene Rules, or Continuity Notes.
-3. Keep Enabled checked.
-4. The notes are injected only for the current chat.
+2. Click the magic-wand Extensions menu.
+3. Select Chat Persona Lore.
+4. Fill in any fields you want: World Setting, Character Notes, User Notes, Relationship, Scene Rules, or Continuity Notes.
+5. Keep Enabled checked.
+6. The notes are injected only for the current chat.
+
+## Presets
+
+The popup includes draft buttons for:
+
+- Omegaverse
+- Sentinelverse
+
+These currently fill starter text that you can edit. They are intentionally simple so future versions can add automatic application, detailed templates, or AI-assisted generation.
 
 ## Injection Defaults
 

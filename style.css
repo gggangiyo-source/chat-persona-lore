@@ -1,18 +1,60 @@
+/* ============================================================
+   CPL Persona Extension — Semi-Retro Lavender Theme
+   Fonts: Outfit (UI) + DM Mono (code/preview)
+   @import in your HTML <head>:
+   https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Outfit:wght@400;500;600&display=swap
+   ============================================================ */
+
+/* ── Tokens ───────────────────────────────────────────────── */
+:root {
+    --lav-50:  #f5f3ff;
+    --lav-100: #ede9fe;
+    --lav-200: #ddd6fe;
+    --lav-300: #c4b5fd;
+    --lav-400: #a78bfa;
+    --lav-500: #8b5cf6;
+    --lav-600: #7c3aed;
+    --lav-700: #6d28d9;
+    --lav-900: #2e1065;
+
+    --white:    #ffffff;
+    --gray-50:  #fafafa;
+    --gray-100: #f4f4f5;
+    --gray-200: #e4e4e7;
+    --gray-400: #a1a1aa;
+    --gray-600: #52525b;
+    --gray-800: #27272a;
+
+    --preview-bg:   #1e1b2e;
+    --preview-text: #c4b5fd;
+    --preview-cur:  #a78bfa;
+
+    --font-ui:   'Outfit', system-ui, sans-serif;
+    --font-mono: 'DM Mono', 'Courier New', monospace;
+
+    --r6:  6px;
+    --r8:  8px;
+    --r10: 10px;
+}
+
+/* ── Popup overlay ────────────────────────────────────────── */
 .cpl-popup {
     position: fixed;
     inset: 0;
     z-index: 10000;
-    color: #2f2a20;
-    font-family: inherit;
+    color: var(--gray-800);
+    font-family: var(--font-ui);
+    font-size: 13px;
 }
 
 .cpl-backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(26, 22, 16, 0.42);
-    backdrop-filter: blur(3px);
+    background: rgba(46, 16, 101, 0.28);
+    backdrop-filter: blur(4px);
 }
 
+/* ── Window ───────────────────────────────────────────────── */
 .cpl-window {
     position: relative;
     display: flex;
@@ -21,27 +63,29 @@
     max-height: min(840px, calc(100vh - 28px));
     margin: 14px auto;
     overflow: hidden;
-    border: 1px solid #d9c28a;
-    border-radius: 8px;
-    background: #fffdf7;
-    box-shadow: 0 22px 70px rgba(54, 43, 22, 0.34);
+    background: var(--white);
+    border: 1.5px solid var(--lav-200);
+    border-radius: var(--r10);
+    box-shadow:
+        0 2px 0 var(--lav-200),
+        0 8px 32px rgba(139, 92, 246, 0.10),
+        0 2px 8px rgba(139, 92, 246, 0.06);
 }
 
+/* Remove original gold stripe */
 .cpl-window::before {
-    content: "";
-    display: block;
-    height: 5px;
-    background: linear-gradient(90deg, #b78a2b, #f2d77d, #b78a2b);
+    display: none;
 }
 
+/* ── Title bar ────────────────────────────────────────────── */
 .cpl-topbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 16px 18px;
-    border-bottom: 1px solid #eadfbd;
-    background: linear-gradient(180deg, #fffaf0, #fffdf7);
+    gap: 10px;
+    padding: 9px 14px;
+    background: var(--lav-100);
+    border-bottom: 1.5px solid var(--lav-200);
 }
 
 .cpl-brand,
@@ -49,79 +93,101 @@
 .cpl-footer {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 .cpl-icon {
     display: grid;
     place-items: center;
-    width: 40px;
-    height: 40px;
-    border: 1px solid #d7b65f;
-    border-radius: 8px;
-    color: #8f6718;
-    background: #fff3c9;
+    width: 24px;
+    height: 24px;
+    background: var(--lav-400);
+    border-radius: var(--r6);
+    color: var(--white);
+    border: none;
 }
 
 .cpl-brand h3 {
     margin: 0;
-    color: #251f15;
-    font-size: 1.12rem;
-    letter-spacing: 0;
+    color: var(--lav-700);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
 }
 
 .cpl-brand p {
-    margin: 2px 0 0;
-    color: #6f6249;
-    font-size: 0.88rem;
+    margin: 0;
+    color: var(--lav-400);
+    font-family: var(--font-mono);
+    font-size: 11px;
 }
 
+/* ── Token pill ───────────────────────────────────────────── */
 .cpl-token-pill {
-    min-width: 88px;
-    padding: 6px 10px;
-    border: 1px solid #dbc88f;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 90px;
+    padding: 3px 10px;
+    border: 1.5px solid var(--lav-200);
     border-radius: 999px;
-    color: #684910;
+    color: var(--lav-700);
     text-align: center;
-    font-size: 0.82rem;
-    background: #fff6d8;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--white);
 }
 
+.cpl-token-pill::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--lav-400);
+    flex-shrink: 0;
+}
+
+/* ── Shared button base ───────────────────────────────────── */
 .cpl-icon-btn,
 .cpl-button,
 .cpl-preset,
 .cpl-mini-button,
 .cpl-saved-apply,
 .cpl-saved-delete {
-    border: 1px solid #d8c48b;
-    color: #3a2e18;
-    background: #fffaf0;
+    background: var(--lav-100);
+    border: 1.5px solid var(--lav-200);
+    color: var(--lav-700);
     cursor: pointer;
-    transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: var(--r6);
+    transition: background 100ms, border-color 100ms, color 100ms;
 }
 
 .cpl-icon-btn {
     display: grid;
     place-items: center;
-    width: 34px;
-    height: 34px;
-    border-radius: 7px;
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
 }
 
 .cpl-button,
 .cpl-preset,
 .cpl-mini-button {
-    min-height: 34px;
-    border-radius: 7px;
+    min-height: 30px;
 }
 
 .cpl-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 7px;
-    padding: 0 13px;
-    font-weight: 700;
+    gap: 6px;
+    padding: 0 12px;
+    font-weight: 500;
 }
 
 .cpl-preset {
@@ -129,9 +195,11 @@
     align-items: center;
     gap: 8px;
     width: 100%;
-    padding: 8px 10px;
+    padding: 5px 8px;
     text-align: left;
-    font-weight: 700;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 400;
 }
 
 .cpl-icon-btn:hover,
@@ -140,24 +208,41 @@
 .cpl-mini-button:hover,
 .cpl-saved-apply:hover,
 .cpl-saved-delete:hover {
-    border-color: #b78a2b;
-    background: #ffe9a8;
-    color: #2a2112;
+    background: var(--lav-200);
+    border-color: var(--lav-300);
+    color: var(--lav-900);
 }
 
+/* Primary action button variant — add this class for main CTA */
+.cpl-button-primary {
+    background: var(--lav-500);
+    border-color: var(--lav-600);
+    color: var(--white);
+}
+
+.cpl-button-primary:hover {
+    background: var(--lav-600);
+    border-color: var(--lav-700);
+    color: var(--white);
+}
+
+/* Danger */
 .cpl-danger {
-    border-color: #dfb2a7;
-    color: #713123;
+    background: none;
+    border-color: var(--lav-200);
+    color: var(--gray-400);
 }
 
 .cpl-danger:hover {
-    border-color: #c96d58;
-    background: #ffe3dc;
+    background: #fff1f2;
+    border-color: #fca5a5;
+    color: #f87171;
 }
 
+/* ── Body layout ──────────────────────────────────────────── */
 .cpl-body {
     display: grid;
-    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-columns: 220px minmax(0, 1fr);
     min-height: 0;
     overflow: hidden;
 }
@@ -166,80 +251,88 @@
 .cpl-main {
     min-height: 0;
     overflow: auto;
-    padding: 14px;
+    padding: 12px 10px;
 }
 
+/* ── Sidebar ──────────────────────────────────────────────── */
 .cpl-sidebar {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    border-right: 1px solid #eadfbd;
-    background: #fbf5e7;
+    gap: 10px;
+    border-right: 1.5px solid var(--lav-200);
+    background: var(--lav-50);
 }
 
+/* ── Main ─────────────────────────────────────────────────── */
 .cpl-main {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    background:
-        linear-gradient(90deg, rgba(183, 138, 43, 0.06) 1px, transparent 1px),
-        linear-gradient(180deg, #fffdf7, #fffaf0);
-    background-size: 26px 26px, auto;
+    gap: 10px;
+    background: var(--white);
 }
 
+/* ── Cards ────────────────────────────────────────────────── */
 .cpl-card,
 .cpl-field {
-    border: 1px solid #e5d7ad;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.92);
+    background: var(--white);
+    border: 1.5px solid var(--lav-200);
+    border-radius: var(--r8);
 }
 
 .cpl-card {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 10px;
-    box-shadow: 0 1px 0 rgba(143, 103, 24, 0.08);
+    gap: 6px;
+    padding: 8px;
 }
 
 .cpl-card-title {
-    color: #3b301d;
-    font-size: 0.86rem;
-    font-weight: 800;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--lav-400);
+    padding: 0 2px;
+    margin-bottom: 2px;
 }
 
 .cpl-card-note,
 .cpl-empty {
-    color: #7c705b;
-    font-size: 0.78rem;
-    line-height: 1.35;
+    color: var(--gray-400);
+    font-size: 11.5px;
+    font-family: var(--font-mono);
+    line-height: 1.4;
 }
 
+/* ── Toggle switch ────────────────────────────────────────── */
 .cpl-switch {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 11px;
-    border: 1px solid #d4af54;
-    border-radius: 8px;
-    color: #3a2e18;
-    background: #fff3c9;
+    gap: 8px;
+    padding: 5px 8px;
+    border: 1.5px solid var(--lav-200);
+    border-radius: var(--r6);
+    color: var(--gray-600);
+    background: var(--lav-50);
+    font-size: 12px;
 }
 
 .cpl-switch input {
-    width: 18px;
-    height: 18px;
-    accent-color: #b78a2b;
+    width: 13px;
+    height: 13px;
+    accent-color: var(--lav-500);
 }
 
+/* ── Labels & form controls ───────────────────────────────── */
 .cpl-card label,
 .cpl-field {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    color: #443721;
-    font-size: 0.88rem;
-    font-weight: 800;
+    gap: 4px;
+    color: var(--gray-600);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
 }
 
 .cpl-card input,
@@ -247,26 +340,30 @@
 .cpl-field input,
 .cpl-field textarea {
     width: 100%;
-    min-height: 36px;
+    min-height: 30px;
     box-sizing: border-box;
-    border: 1px solid #d8caa5;
-    border-radius: 7px;
-    color: #262017;
-    background: #ffffff;
+    border: 1.5px solid var(--lav-200);
+    border-radius: var(--r6);
+    color: var(--gray-800);
+    background: var(--lav-50);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    transition: border-color 100ms, background 100ms;
 }
 
 .cpl-card input,
 .cpl-card select {
-    padding: 6px 8px;
+    padding: 5px 8px;
 }
 
 .cpl-field {
     padding: 10px;
+    border-radius: var(--r8);
 }
 
 .cpl-field input,
 .cpl-field textarea {
-    padding: 9px 10px;
+    padding: 7px 10px;
     font-weight: 400;
 }
 
@@ -274,66 +371,71 @@
 .cpl-card select:focus,
 .cpl-field input:focus,
 .cpl-field textarea:focus {
-    outline: 2px solid rgba(212, 175, 84, 0.34);
-    border-color: #b78a2b;
+    outline: none;
+    border-color: var(--lav-400);
+    background: var(--white);
 }
 
 .cpl-field textarea {
     min-height: 112px;
     resize: vertical;
-    line-height: 1.48;
+    line-height: 1.5;
 }
 
 .cpl-field textarea::placeholder,
 .cpl-field input::placeholder,
 .cpl-card input::placeholder {
-    color: #9a8d75;
+    color: var(--gray-400);
 }
 
 .cpl-title-field input {
-    min-height: 40px;
+    min-height: 34px;
 }
 
+/* ── Field grid ───────────────────────────────────────────── */
 .cpl-field-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    gap: 10px;
 }
 
+/* ── Save row ─────────────────────────────────────────────── */
 .cpl-save-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 36px;
-    gap: 6px;
+    grid-template-columns: minmax(0, 1fr) 30px;
+    gap: 4px;
 }
 
 .cpl-mini-button {
     display: grid;
     place-items: center;
-    width: 36px;
+    width: 30px;
     padding: 0;
 }
 
+/* ── Saved presets list ───────────────────────────────────── */
 .cpl-saved-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
 }
 
 .cpl-saved-preset {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 32px;
-    gap: 6px;
+    grid-template-columns: minmax(0, 1fr) 28px;
+    gap: 4px;
 }
 
 .cpl-saved-apply {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 6px;
     min-width: 0;
-    min-height: 32px;
+    min-height: 28px;
     padding: 0 8px;
-    border-radius: 7px;
-    font-weight: 700;
+    font-family: var(--font-mono);
+    font-weight: 400;
+    font-size: 11.5px;
     text-align: left;
 }
 
@@ -346,26 +448,84 @@
 .cpl-saved-delete {
     display: grid;
     place-items: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 7px;
+    width: 28px;
+    height: 28px;
+}
+
+/* ── Preview pane ─────────────────────────────────────────── */
+.cpl-preview-wrap {
+    border: 1.5px solid var(--lav-200);
+    border-radius: var(--r8);
+    overflow: hidden;
+}
+
+.cpl-preview-bar {
+    background: var(--lav-100);
+    border-bottom: 1.5px solid var(--lav-200);
+    padding: 5px 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--lav-500);
 }
 
 .cpl-preview {
-    min-height: 120px;
+    min-height: 100px;
     max-height: 220px;
     margin: 0;
     overflow: auto;
-    padding: 12px;
-    border: 1px solid #e0d0a0;
-    border-radius: 8px;
-    color: #34291a;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 0;
+    color: var(--preview-text);
+    background: var(--preview-bg);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
     white-space: pre-wrap;
-    background: #fff8df;
-    font-size: 0.88rem;
-    line-height: 1.46;
 }
 
+/* Blinking cursor in preview */
+.cpl-preview-cursor {
+    display: inline-block;
+    width: 7px;
+    height: 13px;
+    background: var(--preview-cur);
+    vertical-align: middle;
+    animation: cpl-blink 1s step-end infinite;
+}
+
+@keyframes cpl-blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+.cpl-footer {
+    padding: 8px 14px;
+    border-top: 1.5px solid var(--lav-200);
+    background: var(--lav-50);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+/* ── Section labels (sidebar) ─────────────────────────────── */
+.cpl-section-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--lav-400);
+    padding: 0 4px;
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 840px) {
     .cpl-window {
         width: calc(100vw - 16px);
@@ -379,14 +539,14 @@
     }
 
     .cpl-sidebar {
-        border-right: 0;
-        border-bottom: 1px solid #eadfbd;
+        border-right: none;
+        border-bottom: 1.5px solid var(--lav-200);
     }
 
     .cpl-topbar,
     .cpl-footer {
-        align-items: stretch;
         flex-direction: column;
+        align-items: stretch;
     }
 
     .cpl-top-actions {

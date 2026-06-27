@@ -10,6 +10,7 @@ It does not edit your base persona. Instead, it saves extra notes per chat and i
 - Add temporary or alternate character settings.
 - Add user persona additions for one room.
 - Keep relationship dynamics, tone rules, and continuity notes separate from the base persona.
+- Save your own reusable presets.
 - Preview exactly what will be injected.
 
 ## Install
@@ -34,12 +35,12 @@ It does not edit your base persona. Instead, it saves extra notes per chat and i
 
 ## Presets
 
-The popup includes draft buttons for:
+The popup includes built-in draft buttons for:
 
 - Omegaverse
 - Sentinelverse
 
-These currently fill starter text that you can edit. They are intentionally simple so future versions can add automatic application, detailed templates, or AI-assisted generation.
+You can also enter your own settings, type a preset name, and save the current form as a reusable preset. Saved presets can be applied or deleted from the popup.
 
 ## Injection Defaults
 

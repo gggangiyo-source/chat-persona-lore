@@ -10,6 +10,7 @@
         injectionDepth: 4,
         injectionRole: 0,
         chatData: {},
+        customPresets: [],
     };
 
     const DEFAULT_CHAT_DATA = {
@@ -22,18 +23,28 @@
         continuity: '',
     };
 
-    const PRESETS = {
-        omegaverse: {
-            title: 'Omegaverse chat setting',
-            world: 'This chat uses an omegaverse setting. Secondary genders such as alpha, beta, and omega may affect social customs, instincts, scent, bonds, and status. Keep the setting internally consistent with the user-provided details.',
-            sceneRules: 'Do not overwrite the base persona. Apply omegaverse elements only as chat-specific context. Respect any explicit boundaries written in this chat.',
+    const BUILTIN_PRESETS = [
+        {
+            id: 'omegaverse',
+            name: '오메가버스',
+            icon: 'fa-venus-mars',
+            data: {
+                title: '오메가버스 채팅 설정',
+                world: '이 채팅은 오메가버스 세계관을 사용한다. 알파, 베타, 오메가 같은 2차 성별은 사회적 관습, 본능, 향, 각인, 지위, 관계 규범에 영향을 줄 수 있다. 사용자가 추가로 적은 세부 설정을 우선하며, 세계관 규칙은 채팅 안에서 일관되게 유지한다.',
+                sceneRules: '기본 persona를 덮어쓰지 않는다. 오메가버스 요소는 이 채팅방 전용 보조 설정으로만 적용한다. 사용자가 명시한 경계와 금지 사항을 우선한다.',
+            },
         },
-        sentinelverse: {
-            title: 'Sentinelverse chat setting',
-            world: 'This chat uses a sentinel/guide setting. Sentinels may have heightened senses or combat roles, while guides may stabilize, support, or bond with them. Keep abilities and institutions consistent with the user-provided details.',
-            sceneRules: 'Do not overwrite the base persona. Apply sentinelverse elements only as chat-specific context. Favor continuity over sudden new rules.',
+        {
+            id: 'sentinelverse',
+            name: '센티넬버스',
+            icon: 'fa-shield-halved',
+            data: {
+                title: '센티넬버스 채팅 설정',
+                world: '이 채팅은 센티넬/가이드 세계관을 사용한다. 센티넬은 강화된 감각, 전투 능력, 폭주 위험을 가질 수 있고, 가이드는 안정화, 동조, 결속, 회복과 관련된 역할을 가질 수 있다. 사용자가 추가로 적은 기관, 계급, 능력 규칙을 우선한다.',
+                sceneRules: '기본 persona를 덮어쓰지 않는다. 센티넬버스 요소는 이 채팅방 전용 보조 설정으로만 적용한다. 갑작스러운 새 규칙보다 이미 적힌 연속성을 우선한다.',
+            },
         },
-    };
+    ];
 
     function getContext() {
         if (window.SillyTavern && typeof window.SillyTavern.getContext === 'function') {
@@ -44,6 +55,18 @@
 
     function clone(value) {
         return JSON.parse(JSON.stringify(value));
+    }
+
+    function escapeHtml(value) {
+        return String(value || '').replace(/[&<>"']/g, function (char) {
+            return {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;',
+            }[char];
+        });
     }
 
     function getSettings() {
@@ -60,6 +83,7 @@
             if (settings[key] === undefined) settings[key] = clone(value);
         }
         if (!settings.chatData || typeof settings.chatData !== 'object') settings.chatData = {};
+        if (!Array.isArray(settings.customPresets)) settings.customPresets = [];
         return settings;
     }
 
@@ -159,14 +183,112 @@
         updateInjection();
     }
 
+    function collectCurrentData() {
+        const data = {};
+        for (const field of Object.keys(DEFAULT_CHAT_DATA)) {
+            data[field] = $(`#cpl-${field}`).val() || '';
+        }
+        return data;
+    }
+
+    function hasAnyData(data) {
+        return Object.values(data || {}).some((value) => String(value || '').trim());
+    }
+
+    function applyPresetData(data) {
+        const target = getChatData();
+        for (const field of Object.keys(DEFAULT_CHAT_DATA)) {
+            target[field] = data[field] || '';
+        }
+        saveSettings();
+        loadFields();
+        updateInjection();
+    }
+
+    function saveCurrentPreset() {
+        const name = String($('#cpl-preset-name').val() || '').trim();
+        const data = collectCurrentData();
+        if (!name) {
+            showToast('프리셋 이름을 입력해 주세요.', 'warning');
+            $('#cpl-preset-name').focus();
+            return;
+        }
+        if (!hasAnyData(data)) {
+            showToast('저장할 설정이 없습니다.', 'warning');
+            return;
+        }
+
+        const settings = getSettings();
+        const existing = settings.customPresets.find((preset) => preset.name === name);
+        if (existing && !confirm(`"${name}" 프리셋을 덮어쓸까요?`)) return;
+
+        const preset = {
+            id: existing ? existing.id : `preset_${Date.now()}`,
+            name,
+            data,
+            updatedAt: new Date().toISOString(),
+        };
+
+        if (existing) {
+            Object.assign(existing, preset);
+        } else {
+            settings.customPresets.push(preset);
+        }
+
+        $('#cpl-preset-name').val('');
+        saveSettings();
+        renderSavedPresets();
+        showToast('프리셋을 저장했습니다.', 'success');
+    }
+
+    function deleteCustomPreset(id) {
+        const settings = getSettings();
+        const preset = settings.customPresets.find((item) => item.id === id);
+        if (!preset) return;
+        if (!confirm(`"${preset.name}" 프리셋을 삭제할까요?`)) return;
+        settings.customPresets = settings.customPresets.filter((item) => item.id !== id);
+        saveSettings();
+        renderSavedPresets();
+    }
+
     function showToast(message, type) {
         if (window.toastr && typeof toastr[type || 'info'] === 'function') {
             toastr[type || 'info'](message);
         }
     }
 
+    function renderSavedPresets() {
+        const container = document.getElementById('cpl-saved-presets');
+        if (!container) return;
+
+        const presets = getSettings().customPresets;
+        if (!presets.length) {
+            container.innerHTML = '<div class="cpl-empty">저장된 프리셋이 없습니다.</div>';
+            return;
+        }
+
+        container.innerHTML = presets.map((preset) => `
+            <div class="cpl-saved-preset" data-id="${escapeHtml(preset.id)}">
+                <button class="cpl-saved-apply" type="button" data-id="${escapeHtml(preset.id)}">
+                    <i class="fa-solid fa-bookmark"></i>
+                    <span>${escapeHtml(preset.name)}</span>
+                </button>
+                <button class="cpl-saved-delete" type="button" title="삭제" data-id="${escapeHtml(preset.id)}">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+
     function renderPopup() {
         if (document.getElementById('chat-persona-lore-popup')) return;
+
+        const builtInPresetHtml = BUILTIN_PRESETS.map((preset) => `
+            <button class="cpl-preset" type="button" data-preset="${preset.id}">
+                <i class="fa-solid ${preset.icon}"></i>
+                <span>${preset.name}</span>
+            </button>
+        `).join('');
 
         const html = `
 <div id="chat-persona-lore-popup" class="cpl-popup" style="display:none;">
@@ -190,14 +312,25 @@
             <aside class="cpl-sidebar">
                 <label class="cpl-switch">
                     <input id="cpl-enabled" type="checkbox">
-                    <span></span>
-                    <strong>주입 사용</strong>
+                    <span class="cpl-switch-track"></span>
+                    <strong>프롬프트 주입</strong>
                 </label>
 
                 <div class="cpl-card">
-                    <div class="cpl-card-title">프리셋 초안</div>
-                    <button class="cpl-preset" type="button" data-preset="omegaverse"><i class="fa-solid fa-venus-mars"></i> 오메가버스</button>
-                    <button class="cpl-preset" type="button" data-preset="sentinelverse"><i class="fa-solid fa-shield-halved"></i> 센티넬버스</button>
+                    <div class="cpl-card-title">세계관 초안</div>
+                    <div class="cpl-card-note">누르면 현재 입력값을 프리셋 내용으로 교체합니다.</div>
+                    ${builtInPresetHtml}
+                </div>
+
+                <div class="cpl-card">
+                    <div class="cpl-card-title">내 프리셋</div>
+                    <div class="cpl-save-row">
+                        <input id="cpl-preset-name" type="text" placeholder="프리셋 이름">
+                        <button id="cpl-save-preset" class="cpl-mini-button" type="button" title="현재 입력값 저장">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
+                    <div id="cpl-saved-presets" class="cpl-saved-list"></div>
                 </div>
 
                 <div class="cpl-card">
@@ -275,6 +408,7 @@
             $(`#cpl-${field}`).val(data[field] || '');
         }
 
+        renderSavedPresets();
         updatePreview();
     }
 
@@ -316,13 +450,25 @@
         });
 
         $(document).on('click', '.cpl-preset', function () {
-            const preset = PRESETS[this.dataset.preset];
+            const preset = BUILTIN_PRESETS.find((item) => item.id === this.dataset.preset);
             if (!preset) return;
-            Object.entries(preset).forEach(([field, value]) => {
-                if (!getChatData()[field]) setChatField(field, value);
-            });
-            loadFields();
-            showToast('프리셋 초안을 채웠습니다. 원하는 부분을 이어서 수정하세요.', 'success');
+            if (hasAnyData(collectCurrentData()) && !confirm(`현재 입력값을 "${preset.name}" 초안으로 교체할까요?`)) return;
+            applyPresetData(preset.data);
+            showToast('세계관 초안을 적용했습니다.', 'success');
+        });
+
+        $(document).on('click', '#cpl-save-preset', saveCurrentPreset);
+
+        $(document).on('click', '.cpl-saved-apply', function () {
+            const preset = getSettings().customPresets.find((item) => item.id === this.dataset.id);
+            if (!preset) return;
+            if (hasAnyData(collectCurrentData()) && !confirm(`현재 입력값을 "${preset.name}" 프리셋으로 교체할까요?`)) return;
+            applyPresetData(preset.data);
+            showToast('프리셋을 적용했습니다.', 'success');
+        });
+
+        $(document).on('click', '.cpl-saved-delete', function () {
+            deleteCustomPreset(this.dataset.id);
         });
 
         $(document).on('click', '#cpl-copy', function () {

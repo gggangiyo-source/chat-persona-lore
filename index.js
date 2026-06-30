@@ -405,60 +405,221 @@
         });
     }
 
-    function normalizeLorebookEntries(payload) {
-        const rawEntries = payload && (payload.entries || payload.world_info || payload.data || payload);
-        const list = Array.isArray(rawEntries) ? rawEntries : Object.values(rawEntries || {});
-        return list.map((entry, index) => {
-            const keys = Array.isArray(entry.key)
-                ? entry.key.join(', ')
-                : Array.isArray(entry.keys)
-                    ? entry.keys.join(', ')
-                    : String(entry.key || entry.keys || entry.keyword || '').trim();
-            const title = String(entry.comment || entry.name || entry.title || keys || `Entry ${index + 1}`).trim();
-            const source = String(entry.content || entry.entry || entry.text || '').trim();
-            return {
-                id: `lore_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`,
-                title,
-                keys,
-                source,
-                enabled: false,
-                note: '',
-            };
-        }).filter((entry) => entry.title || entry.keys || entry.source);
-    }
-
     // ---- SillyTavern에 이미 등록된 로어북(World Info) 연동 ----
+
+    async function getStRequestHeaders() {
+        const headers = { 'Content-Type': 'application/json' };
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        if (csrfMeta) headers['X-CSRF-Token'] = csrfMeta.getAttribute('content');
+        try {
+            const scriptModule = await import('../../../../script.js');
+            if (typeof scriptModule.getRequestHeaders === 'function') {
+                Object.assign(headers, scriptModule.getRequestHeaders());
+            }
+        } catch (error) {
+            // script.js 경로를 못 찾아도 수동 헤더로 계속 진행
+        }
+        return headers;
+    }
 
     function getAllWorldNames() {
         const ctx = getContext();
+
+        // 방법 1: ST DOM의 #world_editor_select에서 직접 읽기 (가장 안정적, ST가 항상 world_names로 채워놓음)
+        try {
+            const options = document.querySelectorAll('#world_editor_select option');
+            if (options.length > 0) {
+                const names = [];
+                options.forEach((opt) => {
+                    const text = (opt.textContent || '').trim();
+                    const val = opt.value;
+                    if (text && val !== '' && val !== 'None') names.push(text);
+                });
+                if (names.length > 0) return names;
+            }
+        } catch (error) {
+            console.warn('[Chat Persona Lore] DOM world list read failed', error);
+        }
+
+        // 방법 2: getContext()/window 전역의 world_names 배열
         if (Array.isArray(ctx.world_names)) return ctx.world_names.slice();
         if (Array.isArray(window.world_names)) return window.world_names.slice();
         return [];
     }
 
+    async function refreshWorldNamesFromApi() {
+        // DOM과 전역 변수에 아직 로어북 목록이 채워지지 않았을 때를 위한 API 폴백
+        try {
+            const headers = await getStRequestHeaders();
+            const response = await fetch('/api/worldinfo/list', { method: 'POST', headers, body: JSON.stringify({}) });
+            if (response.ok) {
+                const data = await response.json();
+                const names = Array.isArray(data) ? data : (data.worldNames || data.world_names || []);
+                if (names.length > 0) return names;
+            }
+        } catch (error) {
+            console.warn('[Chat Persona Lore] /api/worldinfo/list failed', error);
+        }
+
+        try {
+            const headers = await getStRequestHeaders();
+            const response = await fetch('/api/settings/get', { method: 'POST', headers, body: JSON.stringify({}) });
+            if (response.ok) {
+                const data = await response.json();
+                if (Array.isArray(data.world_names) && data.world_names.length > 0) return data.world_names;
+            }
+        } catch (error) {
+            console.warn('[Chat Persona Lore] /api/settings/get fallback failed', error);
+        }
+
+        return [];
+    }
+
+    function getCurrentCharacter() {
+        const ctx = getContext();
+        try {
+            if (Array.isArray(ctx.characters) && ctx.characterId !== undefined && ctx.characterId !== null) {
+                return ctx.characters[ctx.characterId] || null;
+            }
+        } catch (error) {
+            // 무시
+        }
+        return null;
+    }
+
     function getCharacterBoundWorldNames() {
-        // 현재 캐릭터에 연결된(★) 로어북 이름들을 추정
+        // 현재 캐릭터/채팅에 연결된(★) 로어북 이름들을 추정
         const ctx = getContext();
         const bound = new Set();
         try {
-            const char = ctx.characters && ctx.characterId !== undefined ? ctx.characters[ctx.characterId] : null;
+            const char = getCurrentCharacter();
             const primary = char && char.data && char.data.extensions && char.data.extensions.world;
             if (primary) bound.add(String(primary));
 
             // 채팅 메타데이터에 추가로 연결된 보조 로어북들 (있는 경우)
-            const extraBooks = ctx.chat_metadata && ctx.chat_metadata.world_info && ctx.chat_metadata.world_info.globalSelect;
+            const wi = ctx.chat_metadata && ctx.chat_metadata.world_info;
+            const extraBooks = wi && (wi.globalSelect || wi.charLore);
             if (Array.isArray(extraBooks)) extraBooks.forEach((name) => bound.add(String(name)));
+
+            // 전역으로 활성화된 World Info 셀렉터 (있는 경우)
+            if (Array.isArray(ctx.world_info?.globalSelect)) {
+                ctx.world_info.globalSelect.forEach((name) => bound.add(String(name)));
+            }
         } catch (error) {
             console.warn('[Chat Persona Lore] Could not resolve character-bound lorebooks', error);
         }
         return bound;
     }
 
-    function populateLorebookSelect() {
+    function extractWorldInfoEntries(book, sourceName) {
+        if (!book) return [];
+        const rawEntries = book.entries
+            ? (Array.isArray(book.entries) ? book.entries : Object.values(book.entries))
+            : (Array.isArray(book) ? book : Object.values(book));
+
+        return rawEntries.filter(Boolean).map((entry, index) => {
+            const keys = entry.key || entry.keys || [];
+            const keysText = Array.isArray(keys) ? keys.join(', ') : String(keys || '');
+            const title = String(entry.comment || entry.name || keysText || `Entry ${index + 1}`).trim();
+            const content = String(entry.content || entry.entry || entry.text || '').trim();
+            return {
+                id: `lore_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`,
+                title,
+                keys: keysText,
+                source: content,
+                enabled: false,
+                note: '',
+                origin: sourceName,
+            };
+        }).filter((entry) => entry.title || entry.keys || entry.source);
+    }
+
+    async function fetchWorldInfoBookByName(name) {
+        const ctx = getContext();
+
+        // 방법 1: ST의 공식 컨텍스트 API (있는 경우 가장 신뢰도 높음)
+        if (typeof ctx.loadWorldInfo === 'function') {
+            try {
+                const book = await ctx.loadWorldInfo(name);
+                if (book) return book;
+            } catch (error) {
+                console.warn('[Chat Persona Lore] ctx.loadWorldInfo failed, falling back to REST API', error);
+            }
+        }
+
+        // 방법 2: /api/worldinfo/get REST 엔드포인트 (POST)
+        try {
+            const headers = await getStRequestHeaders();
+            const response = await fetch('/api/worldinfo/get', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ name }),
+            });
+            if (response.ok) return await response.json();
+        } catch (error) {
+            console.warn('[Chat Persona Lore] POST /api/worldinfo/get failed', error);
+        }
+
+        // 방법 3: GET 변형 (구버전 호환)
+        try {
+            const response = await fetch(`/api/worldinfo/get?name=${encodeURIComponent(name)}`);
+            if (response.ok) return await response.json();
+        } catch (error) {
+            console.warn('[Chat Persona Lore] GET /api/worldinfo/get failed', error);
+        }
+
+        return null;
+    }
+
+    async function loadCharacterBoundLorebookEntries() {
+        // 현재 캐릭터에 연결된 로어북(외부 WI 북 + 카드 내장 character_book)을 모두 불러와 중복 제거 후 병합
+        const allEntries = [];
+        const seen = new Set();
+        const sourcesUsed = [];
+
+        const char = getCurrentCharacter();
+        const worldName = char && char.data && char.data.extensions && char.data.extensions.world;
+
+        if (worldName) {
+            const book = await fetchWorldInfoBookByName(worldName);
+            if (book) {
+                const entries = extractWorldInfoEntries(book, worldName);
+                entries.forEach((entry) => {
+                    const hash = `${entry.title}|${entry.keys}|${entry.source.slice(0, 200)}`;
+                    if (!seen.has(hash)) {
+                        seen.add(hash);
+                        allEntries.push(entry);
+                    }
+                });
+                if (entries.length) sourcesUsed.push(worldName);
+            }
+        }
+
+        const charBook = char && char.data && char.data.character_book;
+        if (charBook) {
+            const entries = extractWorldInfoEntries(charBook, '캐릭터 카드 내장 로어북');
+            entries.forEach((entry) => {
+                const hash = `${entry.title}|${entry.keys}|${entry.source.slice(0, 200)}`;
+                if (!seen.has(hash)) {
+                    seen.add(hash);
+                    allEntries.push(entry);
+                }
+            });
+            if (entries.length) sourcesUsed.push('캐릭터 카드 내장 로어북');
+        }
+
+        return { entries: allEntries, sourceLabel: sourcesUsed.join(' + ') };
+    }
+
+    async function populateLorebookSelect() {
         const select = document.getElementById('cpl-lorebook-select');
         if (!select) return;
 
-        const names = getAllWorldNames();
+        let names = getAllWorldNames();
+        if (!names.length) {
+            // DOM/전역 변수에 아직 목록이 없으면 REST API로 한 번 더 시도
+            names = await refreshWorldNamesFromApi();
+        }
         const bound = getCharacterBoundWorldNames();
 
         const currentValue = select.value;
@@ -491,6 +652,20 @@
         if (currentValue && names.includes(currentValue)) select.value = currentValue;
     }
 
+    function mergeEntriesPreservingOverrides(entries) {
+        const data = getChatData();
+        // 같은 이름으로 이미 불러온 적이 있으면 기존 enabled/note 값을 보존
+        const previousByKey = new Map(
+            (Array.isArray(data.detailEntries) ? data.detailEntries : [])
+                .map((entry) => [`${entry.title}|${entry.keys}`, entry]),
+        );
+
+        return entries.map((entry) => {
+            const prev = previousByKey.get(`${entry.title}|${entry.keys}`);
+            return prev ? { ...entry, enabled: prev.enabled, note: prev.note } : entry;
+        });
+    }
+
     async function loadSelectedLorebook() {
         const select = document.getElementById('cpl-lorebook-select');
         const name = select ? select.value : '';
@@ -499,46 +674,57 @@
             return;
         }
 
-        const ctx = getContext();
-        if (typeof ctx.loadWorldInfo !== 'function') {
-            showToast('이 SillyTavern 버전에서는 로어북을 직접 불러올 수 없습니다.', 'error');
-            return;
-        }
-
         try {
-            const worldData = await ctx.loadWorldInfo(name);
+            const worldData = await fetchWorldInfoBookByName(name);
             if (!worldData) {
                 showToast(`"${name}" 로어북을 불러오지 못했습니다.`, 'error');
                 return;
             }
 
-            const entries = normalizeLorebookEntries(worldData);
+            const entries = extractWorldInfoEntries(worldData, name);
             if (!entries.length) {
                 showToast('이 로어북에는 항목이 없습니다.', 'warning');
                 return;
             }
 
             const data = getChatData();
-            // 같은 이름으로 이미 불러온 적이 있으면 기존 enabled/note 값을 보존
-            const previousByKey = new Map(
-                (Array.isArray(data.detailEntries) ? data.detailEntries : [])
-                    .map((entry) => [`${entry.title}|${entry.keys}`, entry]),
-            );
-
-            const merged = entries.map((entry) => {
-                const prev = previousByKey.get(`${entry.title}|${entry.keys}`);
-                return prev ? { ...entry, enabled: prev.enabled, note: prev.note } : entry;
-            });
-
             data.lorebookName = name;
-            data.detailEntries = merged;
+            data.detailEntries = mergeEntriesPreservingOverrides(entries);
             saveSettings();
             renderDetailEntries();
             updateInjection();
-            showToast(`"${name}" 로어북을 불러왔습니다. (${merged.length}개 항목)`, 'success');
+            showToast(`"${name}" 로어북을 불러왔습니다. (${entries.length}개 항목)`, 'success');
         } catch (error) {
             console.error('[Chat Persona Lore] Lorebook load failed', error);
             showToast('로어북을 불러오는 중 오류가 발생했습니다.', 'error');
+        }
+    }
+
+    async function loadBoundLorebook() {
+        // 현재 채팅 캐릭터에 실제로 연결되어 있는 로어북(외부 WI 북 + 카드 내장 로어북)을 한 번에 불러오기
+        const char = getCurrentCharacter();
+        if (!char) {
+            showToast('현재 채팅에 캐릭터가 없습니다.', 'warning');
+            return;
+        }
+
+        try {
+            const { entries, sourceLabel } = await loadCharacterBoundLorebookEntries();
+            if (!entries.length) {
+                showToast('이 캐릭터에 연결된 로어북 항목을 찾지 못했습니다.', 'warning');
+                return;
+            }
+
+            const data = getChatData();
+            data.lorebookName = sourceLabel || '캐릭터 연결 로어북';
+            data.detailEntries = mergeEntriesPreservingOverrides(entries);
+            saveSettings();
+            renderDetailEntries();
+            updateInjection();
+            showToast(`캐릭터 연결 로어북을 불러왔습니다. (${entries.length}개 항목, ${sourceLabel})`, 'success');
+        } catch (error) {
+            console.error('[Chat Persona Lore] Bound lorebook load failed', error);
+            showToast('캐릭터 로어북을 불러오는 중 오류가 발생했습니다.', 'error');
         }
     }
 
@@ -805,6 +991,7 @@
                             <div id="cpl-lorebook-source" class="cpl-card-note">불러온 로어북 없음.</div>
                         </div>
                         <div class="cpl-detail-actions">
+                            <button id="cpl-load-bound" class="cpl-button cpl-primary" type="button"><i class="fa-solid fa-link"></i> 캐릭터 연결 로어북 불러오기</button>
                             <select id="cpl-lorebook-select" class="cpl-lorebook-select">
                                 <option value="">SillyTavern에 로드된 로어북 선택...</option>
                             </select>
@@ -930,6 +1117,10 @@
         $(document).on('click', '#cpl-refresh-lorebooks', function () {
             populateLorebookSelect();
             showToast('로어북 목록을 새로고침했습니다.', 'info');
+        });
+
+        $(document).on('click', '#cpl-load-bound', function () {
+            loadBoundLorebook();
         });
 
         $(document).on('click', '#cpl-load-lorebook', function () {

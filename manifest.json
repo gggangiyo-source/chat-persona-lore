@@ -6,6 +6,6 @@
     "js": "index.js",
     "css": "style.css",
     "author": "Codex",
-    "version": "1.0.0",
-    "description": "Adds chat-specific persona, world, relationship, and scene notes to SillyTavern prompt injection without editing the base persona."
+    "version": "1.1.0",
+    "description": "Adds high-priority chat-specific persona, world, relationship, and scene notes to SillyTavern prompt injection without editing the base persona."
 }

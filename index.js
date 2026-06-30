@@ -108,7 +108,26 @@
         if (!settings.chatData || typeof settings.chatData !== 'object') settings.chatData = {};
         if (!Array.isArray(settings.customPresets)) settings.customPresets = [];
         if (!Array.isArray(settings.customWorlds)) settings.customWorlds = [];
+        migratePriorityDefaults(settings);
         return settings;
+    }
+
+    function migratePriorityDefaults(settings) {
+        if (settings.priorityDefaultsVersion === 2) return;
+
+        const isOldDefault =
+            Number(settings.injectionPosition) === 1 &&
+            Number(settings.injectionDepth) === 4 &&
+            Number(settings.injectionRole) === 0;
+
+        if (isOldDefault) {
+            settings.injectionPosition = 0;
+            settings.injectionDepth = 0;
+            settings.injectionRole = 0;
+            saveSettings();
+        }
+
+        settings.priorityDefaultsVersion = 2;
     }
 
     function saveSettings() {
@@ -143,69 +162,30 @@
 
     function section(label, value) {
         const text = String(value || '').trim();
-        return text ? `### ${label}\n${text}` : '';
+        return text ? `## ${label}\n${text}` : '';
     }
 
-    function buildPromptFromData(data) {
-        const charParts = [
+    function buildPrompt() {
+        const data = getChatData();
+        const parts = [
             section('World Setting', data.world),
-            section('Character Notes (AI character only — do NOT apply to the user)', data.character),
-        ].filter(Boolean);
-
-        const userParts = [
-            section('User Persona Notes (human user only — do NOT apply to the AI character)', data.user),
-        ].filter(Boolean);
-
-        const sharedParts = [
+            section('Character Additions', data.character),
+            section('User Persona Additions', data.user),
             section('Relationship And Dynamic', data.relationship),
             section('Scene Rules And Tone', data.sceneRules),
             section('Continuity Notes', data.continuity),
         ].filter(Boolean);
 
-        if (!charParts.length && !userParts.length && !sharedParts.length) return '';
+        if (!parts.length) return '';
 
-        const lines = [
-            `[${(data.title || '').trim() || 'Chat-specific persona and world notes'}]`,
-            'PRIORITY OVERRIDE: The following settings are chat-specific canon and take absolute precedence over the base character card and base persona. Where any detail here conflicts with the character card or persona (e.g. the card says non-smoker but here it says smoker), the setting here wins — immediately and permanently for this chat. Retain base personality traits only where this document is silent. Do not revert, soften, or blend conflicting traits.',
+        return [
+            `[${data.title.trim() || 'Chat-specific persona and world notes'}]`,
+            'PRIORITY OVERRIDE: The following notes are mandatory chat-specific canon for this chat. They must be applied together with the existing character card and persona, but they override any conflicting or overlapping detail from the base persona, character sheet, scenario, or character card.',
+            'CONFLICT RULE: If the base persona/character sheet says one thing and these notes say another, these notes win. Example: if the base says a character is a smoker but these notes say non-smoker, treat the character as a non-smoker in this chat. Do not blend, soften, ignore, revert, or explain away the override.',
+            'SCOPE RULE: Preserve the base personality, voice, and background only where these notes are silent. Apply the World Setting, Character Additions, User Persona Additions, Relationship, Scene Rules, and Continuity Notes exactly as active constraints for this chat.',
             '',
-        ];
-
-        if (charParts.length) {
-            lines.push(
-                '## CHARACTER SETTINGS [OVERRIDES CHARACTER CARD]',
-                'Apply ONLY to the AI character. These replace any conflicting traits in the character card. Never apply to the user.',
-                '',
-                ...charParts,
-                '',
-            );
-        }
-
-        if (userParts.length) {
-            lines.push(
-                '## USER SETTINGS [OVERRIDES BASE PERSONA AND {{user}} IN CHARACTER CARD]',
-                "Apply ONLY to the human user. These replace any conflicting description from the base persona or the character card's {{user}} references. Never apply to the AI character.",
-                '',
-                ...userParts,
-                '',
-            );
-        }
-
-        if (sharedParts.length) {
-            lines.push(
-                '## SHARED SETTINGS',
-                '',
-                ...sharedParts,
-                '',
-            );
-        }
-
-        while (lines[lines.length - 1] === '') lines.pop();
-
-        return lines.join('\n');
-    }
-
-    function buildPrompt() {
-        return buildPromptFromData(getChatData());
+            ...parts,
+        ].join('\n');
     }
 
     function estimateTokens(text) {
@@ -213,12 +193,10 @@
     }
 
     function updatePreview() {
-        // pending 편집 중이면 pending 기준, 아니면 저장된 데이터 기준으로 미리보기
         const preview = document.getElementById('cpl-preview');
         const tokens = document.getElementById('cpl-token-count');
         if (!preview || !tokens) return;
-        const data = _pendingEdits ? _pendingEdits : getChatData();
-        const prompt = buildPromptFromData(data);
+        const prompt = buildPrompt();
         preview.textContent = prompt || '입력된 채팅 전용 설정이 없습니다.';
         tokens.textContent = `~${estimateTokens(prompt)} tokens`;
     }
@@ -242,57 +220,6 @@
             ctx.setExtensionPrompt(PROMPT_ID, '', -1, 0);
         }
         updatePreview();
-    }
-
-    // 임시 편집 버퍼 — 저장 전까지는 실제 데이터에 반영하지 않음
-    let _pendingEdits = null;
-
-    function getPendingEdits() {
-        if (!_pendingEdits) _pendingEdits = clone(getChatData());
-        return _pendingEdits;
-    }
-
-    function discardPendingEdits() {
-        _pendingEdits = null;
-    }
-
-    function setPendingField(field, value) {
-        getPendingEdits()[field] = value;
-        markUnsaved(true);
-        updatePreviewFromPending();
-    }
-
-    function markUnsaved(dirty) {
-        const btn = document.getElementById('cpl-save');
-        if (!btn) return;
-        if (dirty) {
-            btn.classList.add('cpl-unsaved');
-            btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> 저장 *';
-        } else {
-            btn.classList.remove('cpl-unsaved');
-            btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> 저장';
-        }
-    }
-
-    function updatePreviewFromPending() {
-        const preview = document.getElementById('cpl-preview');
-        const tokens = document.getElementById('cpl-token-count');
-        if (!preview || !tokens) return;
-        const pending = getPendingEdits();
-        const prompt = buildPromptFromData(pending);
-        preview.textContent = prompt || '입력된 채팅 전용 설정이 없습니다.';
-        tokens.textContent = `~${estimateTokens(prompt)} tokens`;
-    }
-
-    function commitPendingEdits() {
-        if (!_pendingEdits) return;
-        const target = getChatData();
-        Object.assign(target, _pendingEdits);
-        discardPendingEdits();
-        saveSettings();
-        updateInjection();
-        markUnsaved(false);
-        showToast('저장됐습니다.', 'success');
     }
 
     function setChatField(field, value) {
@@ -576,11 +503,11 @@
                     <label class="cpl-field">세계관
                         <textarea id="cpl-world" placeholder="이 채팅방에서만 적용할 세계관, 시대, 규칙, 조직, 문화..."></textarea>
                     </label>
-                    <label class="cpl-field">캐릭터 설정 <small style="opacity:.6">(AI 캐릭터 전용)</small>
-                        <textarea id="cpl-character" placeholder="AI 캐릭터에게만 적용. 직업, 비밀, 상태, 능력... (유저에게는 절대 적용 안 됨)"></textarea>
+                    <label class="cpl-field">캐릭터 설정
+                        <textarea id="cpl-character" placeholder="캐릭터의 채팅방 전용 직업, 입장, 비밀, 상태, 능력..."></textarea>
                     </label>
-                    <label class="cpl-field">유저 설정 <small style="opacity:.6">(유저 전용)</small>
-                        <textarea id="cpl-user" placeholder="유저에게만 적용. 외형, 역할, 신분, 능력... 캐릭터 카드의 {{user}} 설정보다 이쪽 우선. (AI 캐릭터에게는 절대 적용 안 됨)"></textarea>
+                    <label class="cpl-field">유저 설정
+                        <textarea id="cpl-user" placeholder="유저 persona에 추가할 역할, 외형, 신분, 능력, 현재 상태..."></textarea>
                     </label>
                     <label class="cpl-field">관계 / 다이내믹
                         <textarea id="cpl-relationship" placeholder="둘의 관계, 과거사, 감정선, 거리감, 금기나 약속..."></textarea>
@@ -594,8 +521,6 @@
                 </div>
 
                 <div class="cpl-footer">
-                    <button id="cpl-save" class="cpl-button cpl-primary" type="button"><i class="fa-solid fa-floppy-disk"></i> 저장</button>
-                    <button id="cpl-discard" class="cpl-button" type="button"><i class="fa-solid fa-rotate-left"></i> 취소</button>
                     <button id="cpl-copy" class="cpl-button" type="button"><i class="fa-solid fa-copy"></i> 미리보기 복사</button>
                     <button id="cpl-clear" class="cpl-button cpl-danger" type="button"><i class="fa-solid fa-trash"></i> 현재 채팅 비우기</button>
                 </div>
@@ -613,9 +538,6 @@
     }
 
     function loadFields() {
-        discardPendingEdits();
-        markUnsaved(false);
-
         const settings = getSettings();
         const data = getChatData();
 
@@ -658,15 +580,7 @@
         });
 
         $(document).on('input', '#cpl-title, #cpl-world, #cpl-character, #cpl-user, #cpl-relationship, #cpl-sceneRules, #cpl-continuity', function () {
-            setPendingField(this.id.replace('cpl-', ''), this.value);
-        });
-
-        $(document).on('click', '#cpl-save', commitPendingEdits);
-
-        $(document).on('click', '#cpl-discard', function () {
-            discardPendingEdits();
-            loadFields();
-            showToast('변경을 취소했습니다.', 'info');
+            setChatField(this.id.replace('cpl-', ''), this.value);
         });
 
         $(document).on('change input', '#cpl-position, #cpl-depth, #cpl-role', function () {

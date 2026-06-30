@@ -46,15 +46,19 @@ You can also enter your own settings, type a preset name, and save the current f
 
 ## Prompt Priority
 
-The injected prompt tells the model to treat Chat Persona Lore entries as mandatory chat-specific canon. The base persona should still be preserved where possible, but these chat-specific settings should not be ignored, erased, weakened, or overwritten by the base persona.
+The injected prompt tells the model to treat Chat Persona Lore entries as mandatory chat-specific canon.
+
+If the base persona, character sheet, scenario, or character card conflicts with Chat Persona Lore, the Chat Persona Lore value wins for the current chat. For example, if a base sheet says a character is a smoker but this extension says non-smoker, the model is instructed to use non-smoker.
+
+The base personality, voice, and background should still be preserved where Chat Persona Lore is silent.
 
 ## Injection Defaults
 
-- Position: In Chat
-- Depth: 4
+- Position: Before Main
+- Depth: 0
 - Role: System
 
-These can be changed from the extension panel.
+These are the recommended defaults for stronger priority. Existing installs that still have the old default of In Chat / Depth 4 / System are automatically migrated to Before Main / Depth 0 / System.
 
 ## Notes
 

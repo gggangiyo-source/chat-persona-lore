@@ -22,7 +22,11 @@
         relationship: '',
         sceneRules: '',
         continuity: '',
+        lorebookName: '',
+        detailEntries: [],
     };
+
+    const BASIC_FIELDS = ['title', 'world', 'character', 'user', 'relationship', 'sceneRules', 'continuity'];
 
     const BUILTIN_PRESETS = [
         {
@@ -155,14 +159,39 @@
         if (!settings.chatData[key]) settings.chatData[key] = clone(DEFAULT_CHAT_DATA);
         const data = settings.chatData[key];
         for (const [field, value] of Object.entries(DEFAULT_CHAT_DATA)) {
-            if (data[field] === undefined) data[field] = value;
+            if (data[field] === undefined) data[field] = clone(value);
         }
+        if (!Array.isArray(data.detailEntries)) data.detailEntries = [];
         return data;
     }
 
     function section(label, value) {
         const text = String(value || '').trim();
         return text ? `## ${label}\n${text}` : '';
+    }
+
+    function buildDetailSections(data) {
+        const entries = Array.isArray(data.detailEntries) ? data.detailEntries : [];
+        const active = entries.filter((entry) => entry && entry.enabled && String(entry.note || '').trim());
+        if (!active.length) return '';
+
+        const lines = [
+            '## Detailed Lorebook Overrides',
+            'These are narrow per-lorebook-entry additions. They add detail on top of the main Chat Persona Lore settings and never erase the quick-edit page settings.',
+            '',
+        ];
+
+        active.forEach((entry, index) => {
+            lines.push(
+                `### ${index + 1}. ${entry.title || entry.keys || 'Lorebook Entry'}`,
+                `Source keys: ${entry.keys || 'N/A'}`,
+                String(entry.note || '').trim(),
+                '',
+            );
+        });
+
+        while (lines[lines.length - 1] === '') lines.pop();
+        return lines.join('\n');
     }
 
     function buildPrompt() {
@@ -175,6 +204,8 @@
             section('Scene Rules And Tone', data.sceneRules),
             section('Continuity Notes', data.continuity),
         ].filter(Boolean);
+        const detailSection = buildDetailSections(data);
+        if (detailSection) parts.push(detailSection);
 
         if (!parts.length) return '';
 
@@ -230,7 +261,7 @@
 
     function collectCurrentData() {
         const data = {};
-        for (const field of Object.keys(DEFAULT_CHAT_DATA)) {
+        for (const field of BASIC_FIELDS) {
             data[field] = $(`#cpl-${field}`).val() || '';
         }
         return data;
@@ -242,7 +273,7 @@
 
     function applyPresetData(data) {
         const target = getChatData();
-        for (const field of Object.keys(DEFAULT_CHAT_DATA)) {
+        for (const field of BASIC_FIELDS) {
             target[field] = data[field] || '';
         }
         saveSettings();
@@ -307,6 +338,119 @@
         settings.customWorlds = settings.customWorlds.filter((item) => item.id !== id);
         saveSettings();
         renderCustomWorlds();
+    }
+
+    function downloadJson(filename, payload) {
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+
+    function exportPresetLibrary() {
+        const settings = getSettings();
+        downloadJson('chat-persona-lore-presets.json', {
+            type: 'chat-persona-lore-preset-library',
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            customPresets: settings.customPresets || [],
+            customWorlds: settings.customWorlds || [],
+        });
+    }
+
+    function importPresetLibraryFile(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (event) {
+            try {
+                const payload = JSON.parse(event.target.result);
+                const importedPresets = Array.isArray(payload.customPresets) ? payload.customPresets : [];
+                const importedWorlds = Array.isArray(payload.customWorlds) ? payload.customWorlds : [];
+                if (!importedPresets.length && !importedWorlds.length) {
+                    showToast('No Chat Persona Lore presets found in this JSON.', 'warning');
+                    return;
+                }
+
+                const settings = getSettings();
+                mergeNamedList(settings.customPresets, importedPresets, 'preset');
+                mergeNamedList(settings.customWorlds, importedWorlds, 'world');
+                saveSettings();
+                renderSavedPresets();
+                renderCustomWorlds();
+                showToast('Preset library imported.', 'success');
+            } catch (error) {
+                console.error('[Chat Persona Lore] Import failed', error);
+                showToast('Could not import JSON.', 'error');
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function mergeNamedList(target, incoming, prefix) {
+        incoming.forEach((item) => {
+            if (!item || !item.name || !item.data) return;
+            const copy = clone(item);
+            const existing = target.find((current) => current.name === copy.name);
+            if (existing) {
+                Object.assign(existing, copy, { id: existing.id, updatedAt: new Date().toISOString() });
+            } else {
+                copy.id = copy.id || `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+                target.push(copy);
+            }
+        });
+    }
+
+    function normalizeLorebookEntries(payload) {
+        const rawEntries = payload && (payload.entries || payload.world_info || payload.data || payload);
+        const list = Array.isArray(rawEntries) ? rawEntries : Object.values(rawEntries || {});
+        return list.map((entry, index) => {
+            const keys = Array.isArray(entry.key)
+                ? entry.key.join(', ')
+                : Array.isArray(entry.keys)
+                    ? entry.keys.join(', ')
+                    : String(entry.key || entry.keys || entry.keyword || '').trim();
+            const title = String(entry.comment || entry.name || entry.title || keys || `Entry ${index + 1}`).trim();
+            const source = String(entry.content || entry.entry || entry.text || '').trim();
+            return {
+                id: `lore_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`,
+                title,
+                keys,
+                source,
+                enabled: false,
+                note: '',
+            };
+        }).filter((entry) => entry.title || entry.keys || entry.source);
+    }
+
+    function importLorebookFile(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (event) {
+            try {
+                const payload = JSON.parse(event.target.result);
+                const entries = normalizeLorebookEntries(payload);
+                if (!entries.length) {
+                    showToast('No lorebook entries found in this JSON.', 'warning');
+                    return;
+                }
+                const data = getChatData();
+                data.lorebookName = payload.name || payload.display_name || file.name;
+                data.detailEntries = entries;
+                saveSettings();
+                renderDetailEntries();
+                updateInjection();
+                showToast('Lorebook loaded for detailed overrides.', 'success');
+            } catch (error) {
+                console.error('[Chat Persona Lore] Lorebook import failed', error);
+                showToast('Could not read lorebook JSON.', 'error');
+            }
+        };
+        reader.readAsText(file);
     }
 
     function saveCurrentPreset() {
@@ -407,6 +551,32 @@
         `).join('');
     }
 
+    function renderDetailEntries() {
+        const container = document.getElementById('cpl-detail-entries');
+        const source = document.getElementById('cpl-lorebook-source');
+        if (!container) return;
+
+        const data = getChatData();
+        const entries = Array.isArray(data.detailEntries) ? data.detailEntries : [];
+        if (source) source.textContent = data.lorebookName ? `Loaded: ${data.lorebookName}` : 'No lorebook loaded.';
+
+        if (!entries.length) {
+            container.innerHTML = '<div class="cpl-empty cpl-detail-empty">Load a World Info / lorebook JSON file to create per-entry override toggles.</div>';
+            return;
+        }
+
+        container.innerHTML = entries.map((entry, index) => `
+            <div class="cpl-detail-item" data-index="${index}">
+                <label class="cpl-detail-toggle">
+                    <input class="cpl-detail-enabled" type="checkbox" data-index="${index}" ${entry.enabled ? 'checked' : ''}>
+                    <span>${escapeHtml(entry.title || `Entry ${index + 1}`)}</span>
+                </label>
+                <div class="cpl-detail-meta">${escapeHtml(entry.keys || 'No keys')}</div>
+                <textarea class="cpl-detail-note" data-index="${index}" placeholder="이 로어북 항목에만 추가하거나 덮어쓸 설정을 한 칸에 적어주세요.">${escapeHtml(entry.note || '')}</textarea>
+            </div>
+        `).join('');
+    }
+
     function renderPopup() {
         if (document.getElementById('chat-persona-lore-popup')) return;
 
@@ -470,6 +640,11 @@
                         </button>
                     </div>
                     <div id="cpl-saved-presets" class="cpl-saved-list"></div>
+                    <div class="cpl-import-export-row">
+                        <button id="cpl-export-presets" class="cpl-button" type="button"><i class="fa-solid fa-file-export"></i> Export JSON</button>
+                        <button id="cpl-import-presets" class="cpl-button" type="button"><i class="fa-solid fa-file-import"></i> Import JSON</button>
+                        <input id="cpl-import-presets-file" type="file" accept="application/json,.json" hidden>
+                    </div>
                 </div>
 
                 <div class="cpl-card">
@@ -495,6 +670,12 @@
             </aside>
 
             <main class="cpl-main">
+                <div class="cpl-tabs">
+                    <button class="cpl-tab active" type="button" data-page="quick"><i class="fa-solid fa-pen"></i> Quick Edit</button>
+                    <button class="cpl-tab" type="button" data-page="detail"><i class="fa-solid fa-layer-group"></i> Detail Overrides</button>
+                </div>
+
+                <section id="cpl-page-quick" class="cpl-page active">
                 <label class="cpl-field cpl-title-field">제목
                     <input id="cpl-title" type="text" placeholder="예: 센티넬버스 AU, 현대 오메가버스 설정">
                 </label>
@@ -524,6 +705,22 @@
                     <button id="cpl-copy" class="cpl-button" type="button"><i class="fa-solid fa-copy"></i> 미리보기 복사</button>
                     <button id="cpl-clear" class="cpl-button cpl-danger" type="button"><i class="fa-solid fa-trash"></i> 현재 채팅 비우기</button>
                 </div>
+                </section>
+
+                <section id="cpl-page-detail" class="cpl-page">
+                    <div class="cpl-detail-toolbar">
+                        <div>
+                            <div class="cpl-card-title">Lorebook Detail Overrides</div>
+                            <div id="cpl-lorebook-source" class="cpl-card-note">No lorebook loaded.</div>
+                        </div>
+                        <div class="cpl-detail-actions">
+                            <button id="cpl-import-lorebook" class="cpl-button" type="button"><i class="fa-solid fa-book-open"></i> Load Lorebook JSON</button>
+                            <input id="cpl-import-lorebook-file" type="file" accept="application/json,.json" hidden>
+                        </div>
+                    </div>
+                    <div class="cpl-card-note">Each enabled entry adds one narrow override on top of the Quick Edit page. It never deletes or replaces Quick Edit values.</div>
+                    <div id="cpl-detail-entries" class="cpl-detail-list"></div>
+                </section>
 
                 <div class="cpl-preview-wrap">
                     <div class="cpl-preview-bar"><i class="fa-solid fa-terminal"></i> Injection Preview</div>
@@ -546,12 +743,13 @@
         $('#cpl-depth').val(String(settings.injectionDepth));
         $('#cpl-role').val(String(settings.injectionRole));
 
-        for (const field of Object.keys(DEFAULT_CHAT_DATA)) {
+        for (const field of BASIC_FIELDS) {
             $(`#cpl-${field}`).val(data[field] || '');
         }
 
         renderSavedPresets();
         renderCustomWorlds();
+        renderDetailEntries();
         updatePreview();
     }
 
@@ -572,6 +770,15 @@
         popupEventsBound = true;
 
         $(document).on('click', '#cpl-close, [data-cpl-close]', closePopup);
+
+        $(document).on('click', '.cpl-tab', function () {
+            const page = this.dataset.page;
+            $('.cpl-tab').removeClass('active');
+            $(this).addClass('active');
+            $('.cpl-page').removeClass('active');
+            $(`#cpl-page-${page}`).addClass('active');
+            if (page === 'detail') renderDetailEntries();
+        });
 
         $(document).on('change', '#cpl-enabled', function () {
             getSettings().enabled = this.checked;
@@ -602,6 +809,16 @@
 
         $(document).on('click', '#cpl-save-preset', saveCurrentPreset);
 
+        $(document).on('click', '#cpl-export-presets', exportPresetLibrary);
+
+        $(document).on('click', '#cpl-import-presets', function () {
+            $('#cpl-import-presets-file').val('').trigger('click');
+        });
+
+        $(document).on('change', '#cpl-import-presets-file', function (event) {
+            importPresetLibraryFile(event.target.files && event.target.files[0]);
+        });
+
         $(document).on('click', '#cpl-save-world', saveCurrentWorldDraft);
 
         $(document).on('click', '.cpl-world-apply', function () {
@@ -614,6 +831,32 @@
 
         $(document).on('click', '.cpl-world-delete', function () {
             deleteCustomWorld(this.dataset.id);
+        });
+
+        $(document).on('click', '#cpl-import-lorebook', function () {
+            $('#cpl-import-lorebook-file').val('').trigger('click');
+        });
+
+        $(document).on('change', '#cpl-import-lorebook-file', function (event) {
+            importLorebookFile(event.target.files && event.target.files[0]);
+        });
+
+        $(document).on('change', '.cpl-detail-enabled', function () {
+            const data = getChatData();
+            const entry = data.detailEntries[Number(this.dataset.index)];
+            if (!entry) return;
+            entry.enabled = this.checked;
+            saveSettings();
+            updateInjection();
+        });
+
+        $(document).on('input', '.cpl-detail-note', function () {
+            const data = getChatData();
+            const entry = data.detailEntries[Number(this.dataset.index)];
+            if (!entry) return;
+            entry.note = this.value;
+            saveSettings();
+            updateInjection();
         });
 
         $(document).on('click', '.cpl-saved-apply', function () {

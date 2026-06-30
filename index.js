@@ -427,30 +427,119 @@
         }).filter((entry) => entry.title || entry.keys || entry.source);
     }
 
-    function importLorebookFile(file) {
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function (event) {
-            try {
-                const payload = JSON.parse(event.target.result);
-                const entries = normalizeLorebookEntries(payload);
-                if (!entries.length) {
-                    showToast('No lorebook entries found in this JSON.', 'warning');
-                    return;
-                }
-                const data = getChatData();
-                data.lorebookName = payload.name || payload.display_name || file.name;
-                data.detailEntries = entries;
-                saveSettings();
-                renderDetailEntries();
-                updateInjection();
-                showToast('Lorebook loaded for detailed overrides.', 'success');
-            } catch (error) {
-                console.error('[Chat Persona Lore] Lorebook import failed', error);
-                showToast('Could not read lorebook JSON.', 'error');
+    // ---- SillyTavern에 이미 등록된 로어북(World Info) 연동 ----
+
+    function getAllWorldNames() {
+        const ctx = getContext();
+        if (Array.isArray(ctx.world_names)) return ctx.world_names.slice();
+        if (Array.isArray(window.world_names)) return window.world_names.slice();
+        return [];
+    }
+
+    function getCharacterBoundWorldNames() {
+        // 현재 캐릭터에 연결된(★) 로어북 이름들을 추정
+        const ctx = getContext();
+        const bound = new Set();
+        try {
+            const char = ctx.characters && ctx.characterId !== undefined ? ctx.characters[ctx.characterId] : null;
+            const primary = char && char.data && char.data.extensions && char.data.extensions.world;
+            if (primary) bound.add(String(primary));
+
+            // 채팅 메타데이터에 추가로 연결된 보조 로어북들 (있는 경우)
+            const extraBooks = ctx.chat_metadata && ctx.chat_metadata.world_info && ctx.chat_metadata.world_info.globalSelect;
+            if (Array.isArray(extraBooks)) extraBooks.forEach((name) => bound.add(String(name)));
+        } catch (error) {
+            console.warn('[Chat Persona Lore] Could not resolve character-bound lorebooks', error);
+        }
+        return bound;
+    }
+
+    function populateLorebookSelect() {
+        const select = document.getElementById('cpl-lorebook-select');
+        if (!select) return;
+
+        const names = getAllWorldNames();
+        const bound = getCharacterBoundWorldNames();
+
+        const currentValue = select.value;
+        select.innerHTML = '<option value="">SillyTavern에 로드된 로어북 선택...</option>';
+
+        if (!names.length) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.disabled = true;
+            opt.textContent = '등록된 로어북이 없습니다';
+            select.appendChild(opt);
+            return;
+        }
+
+        // 캐릭터에 연결된 로어북을 목록 상단으로 정렬
+        const sorted = names.slice().sort((a, b) => {
+            const aBound = bound.has(a) ? 0 : 1;
+            const bBound = bound.has(b) ? 0 : 1;
+            if (aBound !== bBound) return aBound - bBound;
+            return a.localeCompare(b);
+        });
+
+        for (const name of sorted) {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = bound.has(name) ? `★ ${name}` : name;
+            select.appendChild(opt);
+        }
+
+        if (currentValue && names.includes(currentValue)) select.value = currentValue;
+    }
+
+    async function loadSelectedLorebook() {
+        const select = document.getElementById('cpl-lorebook-select');
+        const name = select ? select.value : '';
+        if (!name) {
+            showToast('불러올 로어북을 선택해 주세요.', 'warning');
+            return;
+        }
+
+        const ctx = getContext();
+        if (typeof ctx.loadWorldInfo !== 'function') {
+            showToast('이 SillyTavern 버전에서는 로어북을 직접 불러올 수 없습니다.', 'error');
+            return;
+        }
+
+        try {
+            const worldData = await ctx.loadWorldInfo(name);
+            if (!worldData) {
+                showToast(`"${name}" 로어북을 불러오지 못했습니다.`, 'error');
+                return;
             }
-        };
-        reader.readAsText(file);
+
+            const entries = normalizeLorebookEntries(worldData);
+            if (!entries.length) {
+                showToast('이 로어북에는 항목이 없습니다.', 'warning');
+                return;
+            }
+
+            const data = getChatData();
+            // 같은 이름으로 이미 불러온 적이 있으면 기존 enabled/note 값을 보존
+            const previousByKey = new Map(
+                (Array.isArray(data.detailEntries) ? data.detailEntries : [])
+                    .map((entry) => [`${entry.title}|${entry.keys}`, entry]),
+            );
+
+            const merged = entries.map((entry) => {
+                const prev = previousByKey.get(`${entry.title}|${entry.keys}`);
+                return prev ? { ...entry, enabled: prev.enabled, note: prev.note } : entry;
+            });
+
+            data.lorebookName = name;
+            data.detailEntries = merged;
+            saveSettings();
+            renderDetailEntries();
+            updateInjection();
+            showToast(`"${name}" 로어북을 불러왔습니다. (${merged.length}개 항목)`, 'success');
+        } catch (error) {
+            console.error('[Chat Persona Lore] Lorebook load failed', error);
+            showToast('로어북을 불러오는 중 오류가 발생했습니다.', 'error');
+        }
     }
 
     function saveCurrentPreset() {
@@ -556,12 +645,14 @@
         const source = document.getElementById('cpl-lorebook-source');
         if (!container) return;
 
+        populateLorebookSelect();
+
         const data = getChatData();
         const entries = Array.isArray(data.detailEntries) ? data.detailEntries : [];
-        if (source) source.textContent = data.lorebookName ? `Loaded: ${data.lorebookName}` : 'No lorebook loaded.';
+        if (source) source.textContent = data.lorebookName ? `불러옴: ${data.lorebookName} (${entries.length}개 항목)` : '불러온 로어북 없음.';
 
         if (!entries.length) {
-            container.innerHTML = '<div class="cpl-empty cpl-detail-empty">Load a World Info / lorebook JSON file to create per-entry override toggles.</div>';
+            container.innerHTML = '<div class="cpl-empty cpl-detail-empty">위에서 로어북을 선택하고 "불러오기"를 누르면 항목별 override 토글이 생성됩니다.</div>';
             return;
         }
 
@@ -710,15 +801,18 @@
                 <section id="cpl-page-detail" class="cpl-page">
                     <div class="cpl-detail-toolbar">
                         <div>
-                            <div class="cpl-card-title">Lorebook Detail Overrides</div>
-                            <div id="cpl-lorebook-source" class="cpl-card-note">No lorebook loaded.</div>
+                            <div class="cpl-card-title">로어북 불러오기</div>
+                            <div id="cpl-lorebook-source" class="cpl-card-note">불러온 로어북 없음.</div>
                         </div>
                         <div class="cpl-detail-actions">
-                            <button id="cpl-import-lorebook" class="cpl-button" type="button"><i class="fa-solid fa-book-open"></i> Load Lorebook JSON</button>
-                            <input id="cpl-import-lorebook-file" type="file" accept="application/json,.json" hidden>
+                            <select id="cpl-lorebook-select" class="cpl-lorebook-select">
+                                <option value="">SillyTavern에 로드된 로어북 선택...</option>
+                            </select>
+                            <button id="cpl-refresh-lorebooks" class="cpl-icon-btn" type="button" title="목록 새로고침"><i class="fa-solid fa-rotate"></i></button>
+                            <button id="cpl-load-lorebook" class="cpl-button" type="button"><i class="fa-solid fa-book-open"></i> 불러오기</button>
                         </div>
                     </div>
-                    <div class="cpl-card-note">Each enabled entry adds one narrow override on top of the Quick Edit page. It never deletes or replaces Quick Edit values.</div>
+                    <div class="cpl-card-note">SillyTavern에 현재 등록되어 있는 로어북(World Info) 중에서 선택해서 불러옵니다. 캐릭터에 연결된 로어북은 ★ 표시됩니다. 항목별로 켜고 끄면서 채팅 전용 override를 추가하세요. 기본 설정 탭의 값은 절대 지워지지 않습니다.</div>
                     <div id="cpl-detail-entries" class="cpl-detail-list"></div>
                 </section>
 
@@ -833,12 +927,13 @@
             deleteCustomWorld(this.dataset.id);
         });
 
-        $(document).on('click', '#cpl-import-lorebook', function () {
-            $('#cpl-import-lorebook-file').val('').trigger('click');
+        $(document).on('click', '#cpl-refresh-lorebooks', function () {
+            populateLorebookSelect();
+            showToast('로어북 목록을 새로고침했습니다.', 'info');
         });
 
-        $(document).on('change', '#cpl-import-lorebook-file', function (event) {
-            importLorebookFile(event.target.files && event.target.files[0]);
+        $(document).on('click', '#cpl-load-lorebook', function () {
+            loadSelectedLorebook();
         });
 
         $(document).on('change', '.cpl-detail-enabled', function () {

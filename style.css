@@ -645,3 +645,22 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.75; }
 }
+
+.cpl-lorebook-select {
+    min-width: 0;
+    flex: 1 1 auto;
+    height: 30px;
+    padding: 0 8px;
+    border: 1.5px solid var(--cpl-lav-200);
+    border-radius: var(--cpl-r6);
+    color: var(--cpl-gray-800);
+    background: var(--cpl-lav-50);
+    font-family: var(--cpl-font-mono);
+    font-size: 11.5px;
+}
+
+.cpl-lorebook-select:focus {
+    outline: none;
+    border-color: var(--cpl-lav-400);
+    background: var(--cpl-white);
+}

@@ -335,6 +335,7 @@
 .cpl-body {
     display: grid;
     grid-template-columns: 232px minmax(0, 1fr);
+    flex: 1 1 0;
     min-height: 0;
     overflow: hidden;
 }

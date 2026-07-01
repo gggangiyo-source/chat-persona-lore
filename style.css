@@ -1,30 +1,32 @@
-/* Chat Persona Lore - refined lavender notebook theme */
+/* Chat Persona Lore - sweet lavender-pink cupcake theme */
 :root {
-    --cpl-lav-50: #faf8ff;
-    --cpl-lav-100: #f1ecfe;
-    --cpl-lav-200: #e3daf9;
-    --cpl-lav-300: #c9b8f5;
-    --cpl-lav-400: #a78bfa;
-    --cpl-lav-500: #8b5cf6;
-    --cpl-lav-600: #7c3aed;
-    --cpl-lav-700: #6529c4;
-    --cpl-lav-900: #2c1463;
+    --cpl-lav-50: #fef6fb;
+    --cpl-lav-100: #fbe8f6;
+    --cpl-lav-200: #f6d3ee;
+    --cpl-lav-300: #ecb3e3;
+    --cpl-lav-400: #dd93da;
+    --cpl-lav-500: #c974d6;
+    --cpl-lav-600: #a855c9;
+    --cpl-lav-700: #8b3fac;
+    --cpl-lav-900: #451468;
+    --cpl-pink-400: #ff9fd0;
+    --cpl-pink-500: #ff7ec2;
     --cpl-white: #ffffff;
-    --cpl-gray-50: #fbfafd;
-    --cpl-gray-100: #f4f2f9;
-    --cpl-gray-200: #e7e2f1;
-    --cpl-gray-400: #a59fb8;
-    --cpl-gray-600: #5d566f;
-    --cpl-gray-800: #261f38;
-    --cpl-preview-bg: #1b1730;
-    --cpl-preview-text: #d8caff;
-    --cpl-font-ui: "Outfit", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --cpl-gray-50: #fffbfd;
+    --cpl-gray-100: #fbf1f8;
+    --cpl-gray-200: #f3e0f0;
+    --cpl-gray-400: #b599c2;
+    --cpl-gray-600: #715a80;
+    --cpl-gray-800: #3a2148;
+    --cpl-preview-bg: #2a1a45;
+    --cpl-preview-text: #f2d9fa;
+    --cpl-font-ui: "Quicksand", "Baloo 2", "Outfit", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     --cpl-font-mono: "DM Mono", "Cascadia Mono", "Courier New", monospace;
-    --cpl-r6: 8px;
-    --cpl-r8: 12px;
-    --cpl-r10: 16px;
-    --cpl-shadow-soft: 0 1px 2px rgba(44, 20, 99, 0.04);
-    --cpl-shadow-pop: 0 24px 60px -16px rgba(44, 20, 99, 0.35), 0 4px 16px rgba(44, 20, 99, 0.08);
+    --cpl-r6: 12px;
+    --cpl-r8: 16px;
+    --cpl-r10: 22px;
+    --cpl-shadow-soft: 0 2px 6px rgba(200, 90, 190, 0.10);
+    --cpl-shadow-pop: 0 24px 60px -16px rgba(168, 85, 201, 0.35), 0 4px 20px rgba(255, 126, 194, 0.15);
 }
 
 * {
@@ -60,13 +62,13 @@
     border-radius: var(--cpl-r10);
     background: var(--cpl-white);
     box-shadow: var(--cpl-shadow-pop);
-    animation: cpl-pop-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
+    animation: cpl-pop-in 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes cpl-pop-in {
     from {
         opacity: 0;
-        transform: translateY(6px) scale(0.985);
+        transform: translateY(10px) scale(0.96);
     }
     to {
         opacity: 1;
@@ -75,7 +77,15 @@
 }
 
 .cpl-window::before {
-    display: none;
+    content: "";
+    position: absolute;
+    top: -60px;
+    right: -60px;
+    width: 160px;
+    height: 160px;
+    background: radial-gradient(circle, rgba(255, 159, 208, 0.35), rgba(201, 116, 214, 0) 70%);
+    border-radius: 50%;
+    pointer-events: none;
 }
 
 /* ---------- Top bar ---------- */
@@ -105,8 +115,8 @@
     height: 32px;
     border-radius: var(--cpl-r6);
     color: var(--cpl-white);
-    background: linear-gradient(135deg, var(--cpl-lav-500), var(--cpl-lav-600));
-    box-shadow: 0 4px 10px -3px rgba(124, 58, 237, 0.55);
+    background: linear-gradient(135deg, var(--cpl-lav-400), var(--cpl-pink-500));
+    box-shadow: 0 4px 12px -3px rgba(255, 126, 194, 0.55);
     font-size: 13px;
 }
 
@@ -151,9 +161,9 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--cpl-lav-500);
+    background: var(--cpl-pink-500);
     flex-shrink: 0;
-    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
+    box-shadow: 0 0 0 3px rgba(255, 126, 194, 0.22);
 }
 
 /* ---------- Buttons ---------- */
@@ -237,7 +247,7 @@
 .cpl-button:active,
 .cpl-preset:active,
 .cpl-mini-button:active {
-    transform: translateY(1px) scale(0.99);
+    transform: translateY(1px) scale(0.95);
 }
 
 .cpl-danger {
@@ -255,20 +265,20 @@
 
 .cpl-button.cpl-primary {
     border-color: transparent;
-    background: linear-gradient(135deg, var(--cpl-lav-500), var(--cpl-lav-600));
+    background: linear-gradient(135deg, var(--cpl-pink-500), var(--cpl-lav-500));
     color: #fff;
-    font-weight: 600;
-    box-shadow: 0 4px 12px -4px rgba(124, 58, 237, 0.55);
+    font-weight: 700;
+    box-shadow: 0 4px 14px -4px rgba(255, 126, 194, 0.6);
 }
 
 .cpl-button.cpl-primary:hover {
-    background: linear-gradient(135deg, var(--cpl-lav-600), var(--cpl-lav-700));
+    background: linear-gradient(135deg, var(--cpl-pink-400), var(--cpl-lav-600));
     color: #fff;
 }
 
 .cpl-button.cpl-unsaved {
     border-color: transparent;
-    background: #f0a93f;
+    background: #ffb648;
     color: #fff;
     animation: cpl-pulse 1.6s ease-in-out infinite;
 }
@@ -432,7 +442,7 @@
     outline: none;
     border-color: var(--cpl-lav-400);
     background: var(--cpl-white);
-    box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.18);
+    box-shadow: 0 0 0 3px rgba(255, 126, 194, 0.22);
 }
 
 .cpl-field textarea {
@@ -681,7 +691,7 @@
     outline: none;
     border-color: var(--cpl-lav-400);
     background: var(--cpl-white);
-    box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.18);
+    box-shadow: 0 0 0 3px rgba(255, 126, 194, 0.22);
 }
 
 /* ---------- Preview ---------- */
@@ -699,7 +709,7 @@
     padding: 8px 12px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     color: var(--cpl-lav-300);
-    background: #241f3d;
+    background: #38254f;
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.08em;
@@ -752,7 +762,7 @@
 .cpl-lorebook-select:focus {
     outline: none;
     border-color: var(--cpl-lav-400);
-    box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.18);
+    box-shadow: 0 0 0 3px rgba(255, 126, 194, 0.22);
 }
 
 /* ---------- Responsive ---------- */

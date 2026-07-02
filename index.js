@@ -12,6 +12,15 @@
         chatData: {},
         customPresets: [],
         customWorlds: [],
+        greeting: {
+            apiSource: 'sillytavern',
+            connectionProfile: '',
+            customApiUrl: '',
+            customApiKey: '',
+            customApiModel: '',
+            customApiMaxTokens: 1000,
+            customApiTimeout: 120,
+        },
     };
 
     const DEFAULT_CHAT_DATA = {
@@ -24,6 +33,11 @@
         continuity: '',
         lorebookName: '',
         detailEntries: [],
+        greetingCount: 1,
+        greetingTone: '',
+        greetingExtra: '',
+        greetings: [],
+        savedGreetings: [],
     };
 
     const BASIC_FIELDS = ['title', 'world', 'character', 'user', 'relationship', 'sceneRules', 'continuity'];
@@ -112,6 +126,13 @@
         if (!settings.chatData || typeof settings.chatData !== 'object') settings.chatData = {};
         if (!Array.isArray(settings.customPresets)) settings.customPresets = [];
         if (!Array.isArray(settings.customWorlds)) settings.customWorlds = [];
+        if (!settings.greeting || typeof settings.greeting !== 'object') {
+            settings.greeting = clone(DEFAULT_SETTINGS.greeting);
+        } else {
+            for (const [key, value] of Object.entries(DEFAULT_SETTINGS.greeting)) {
+                if (settings.greeting[key] === undefined) settings.greeting[key] = value;
+            }
+        }
         migratePriorityDefaults(settings);
         return settings;
     }
@@ -162,6 +183,8 @@
             if (data[field] === undefined) data[field] = clone(value);
         }
         if (!Array.isArray(data.detailEntries)) data.detailEntries = [];
+        if (!Array.isArray(data.greetings)) data.greetings = [];
+        if (!Array.isArray(data.savedGreetings)) data.savedGreetings = [];
         return data;
     }
 
@@ -217,6 +240,462 @@
             '',
             ...parts,
         ].join('\n');
+    }
+
+    // ---- 인사말(첫 메시지) 자동 생성 ----
+
+    function getPersonaNames() {
+        const ctx = getContext();
+        const char = getCurrentCharacter();
+        return {
+            charName: ctx.name2 || (char && char.name) || '',
+            userName: ctx.name1 || '',
+        };
+    }
+
+    function asCleanText(value) {
+        if (value === undefined || value === null) return '';
+        if (Array.isArray(value)) return value.map(asCleanText).filter(Boolean).join('\n');
+        if (typeof value === 'object') return '';
+        return String(value).trim();
+    }
+
+    function firstText(...values) {
+        for (const value of values) {
+            const text = asCleanText(value);
+            if (text) return text;
+        }
+        return '';
+    }
+
+    function truncateContextText(text, maxLength) {
+        const clean = asCleanText(text);
+        if (!clean || clean.length <= maxLength) return clean;
+        return `${clean.slice(0, maxLength).trim()}\n[truncated]`;
+    }
+
+    function getCharacterCardContext() {
+        const char = getCurrentCharacter();
+        if (!char) return '';
+        const data = char.data || {};
+        const sections = [
+            section('Character Card - Description', firstText(data.description, char.description)),
+            section('Character Card - Personality', firstText(data.personality, char.personality)),
+            section('Character Card - Scenario', firstText(data.scenario, char.scenario)),
+            section('Character Card - First Message Reference', firstText(data.first_mes, char.first_mes)),
+            section('Character Card - Message Examples', firstText(data.mes_example, char.mes_example)),
+            section('Character Card - Creator Notes', firstText(data.creator_notes, data.creator_notes_multilingual, char.creator_notes)),
+        ].filter(Boolean);
+        return truncateContextText(sections.join('\n\n'), 12000);
+    }
+
+    function getUserPersonaContext() {
+        const ctx = getContext();
+        const candidates = [];
+        try {
+            candidates.push(
+                ctx.persona,
+                ctx.userPersona,
+                ctx.persona_description,
+                ctx.power_user && ctx.power_user.persona_description,
+                ctx.powerUserSettings && ctx.powerUserSettings.persona_description,
+                window.power_user && window.power_user.persona_description,
+                window.persona_description,
+            );
+
+            const selectedName = firstText(
+                ctx.name1,
+                ctx.power_user && ctx.power_user.persona,
+                ctx.powerUserSettings && ctx.powerUserSettings.persona,
+                window.power_user && window.power_user.persona,
+            );
+            const personaStore = ctx.personas || window.personas || (window.power_user && window.power_user.personas);
+            if (personaStore && typeof personaStore === 'object') {
+                candidates.push(personaStore[selectedName]);
+                for (const value of Object.values(personaStore)) {
+                    if (asCleanText(value).includes(selectedName)) candidates.push(value);
+                }
+            }
+        } catch (error) {
+            console.warn('[Chat Persona Lore] persona context lookup failed', error);
+        }
+        const text = candidates.map(asCleanText).filter(Boolean).find(Boolean) || '';
+        return truncateContextText(text, 5000);
+    }
+
+    function getAuthorsNoteContext() {
+        const ctx = getContext();
+        const notes = [];
+        function pushNote(label, value) {
+            const text = asCleanText(value);
+            if (text) notes.push(section(label, text));
+        }
+
+        try {
+            const metadata = ctx.chat_metadata || {};
+            pushNote("Author's Note", metadata.note_prompt || metadata.authors_note || metadata.author_note);
+            pushNote("Author's Note", ctx.note_prompt || ctx.authors_note || ctx.author_note);
+            pushNote("Author's Note", window.note_prompt || window.authors_note || window.author_note);
+
+            const extensionPrompts = ctx.extensionPrompts || window.extension_prompts || {};
+            if (extensionPrompts && typeof extensionPrompts === 'object') {
+                for (const [key, value] of Object.entries(extensionPrompts)) {
+                    if (key === PROMPT_ID) continue;
+                    const prompt = value && typeof value === 'object' ? firstText(value.value, value.content, value.prompt) : value;
+                    if (/author|note|persona|scenario|memory/i.test(key)) pushNote(`Active Extension Prompt - ${key}`, prompt);
+                }
+            }
+        } catch (error) {
+            console.warn('[Chat Persona Lore] author note lookup failed', error);
+        }
+
+        const unique = [...new Set(notes.filter(Boolean))];
+        return truncateContextText(unique.join('\n\n'), 6000);
+    }
+
+    function buildSillyTavernGreetingContext() {
+        const parts = [
+            section('Current SillyTavern Character Card', getCharacterCardContext()),
+            section('Current SillyTavern User Persona', getUserPersonaContext()),
+            section("Current SillyTavern Author's Note And Active Prompts", getAuthorsNoteContext()),
+        ].filter(Boolean);
+        return parts.join('\n\n');
+    }
+
+    function buildGreetingPrompt(count, tone, extra) {
+        const canon = buildPrompt();
+        const tavernContext = buildSillyTavernGreetingContext();
+        const { charName, userName } = getPersonaNames();
+        const lines = [
+            'You are drafting opening greeting messages (the very first in-character message) for a roleplay chat inside SillyTavern.',
+            charName ? `Character name: ${charName}` : '',
+            userName ? `User name: ${userName}` : '',
+            tavernContext ? `Current SillyTavern chat context that must be respected:\n${tavernContext}` : '',
+            canon ? `Mandatory chat-specific canon that must be respected:\n${canon}` : '',
+            `Write ${count} distinct greeting drafts. Each draft must be a complete, self-contained opening message written strictly in-character, consistent with the character card, user persona, author's note, active prompts, and chat-specific canon above.`,
+            tone ? `Desired tone/style: ${tone}` : '',
+            extra ? `Additional instructions: ${extra}` : '',
+            'Output format rules: separate each draft with a line that contains only ---, and output nothing else (no numbering, no titles, no meta commentary, no explanations).',
+        ].filter(Boolean);
+        return lines.join('\n\n');
+    }
+
+    function parseGreetingResponse(text, expectedCount) {
+        const raw = String(text || '').trim();
+        if (!raw) return [];
+        let parts = raw.split(/\n\s*-{3,}\s*\n/g).map((chunk) => chunk.trim()).filter(Boolean);
+        if (parts.length < 2) {
+            parts = raw.split(/\n\s*\d+[.).]\s+/g).map((chunk) => chunk.trim()).filter(Boolean);
+        }
+        if (!parts.length) parts = [raw];
+        const limit = expectedCount && expectedCount < parts.length ? expectedCount : parts.length;
+        return parts.slice(0, limit);
+    }
+
+    // ---- 연결 프로필 (SillyTavern 자체 API 연결 재사용) ----
+
+    function getConnectionProfiles() {
+        try {
+            const ctx = getContext();
+            const cm = ctx.extensionSettings && ctx.extensionSettings.connectionManager;
+            return cm ? cm.profiles || [] : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function getConnectionProfileName(id) {
+        const profile = getConnectionProfiles().find((item) => item.id === id);
+        return profile ? profile.name : null;
+    }
+
+    function getCurrentConnectionProfileName() {
+        try {
+            const ctx = getContext();
+            const cm = ctx.extensionSettings && ctx.extensionSettings.connectionManager;
+            if (cm && cm.selectedProfile) {
+                const profile = cm.profiles.find((item) => item.id === cm.selectedProfile);
+                return profile ? profile.name : null;
+            }
+        } catch (error) {
+            // 무시
+        }
+        return null;
+    }
+
+    async function switchConnectionProfile(name) {
+        if (!name) return false;
+        try {
+            const ctx = getContext();
+            const runSlash = ctx.executeSlashCommandsWithOptions || ctx.executeSlashCommands;
+            if (runSlash) {
+                await runSlash(`/profile ${name}`);
+                await new Promise((resolve) => setTimeout(resolve, 1200));
+                return true;
+            }
+        } catch (error) {
+            console.warn('[Chat Persona Lore] profile switch failed', error);
+        }
+        return false;
+    }
+
+    // ---- API 호출 ----
+    // 기본값은 SillyTavern에 이미 설정되어 있는 연결(및 API 키)을 그대로 재사용한다.
+    // 별도의 OpenAI 호환 API를 쓰고 싶을 때만 URL/모델/키를 직접 입력해서 사용한다.
+
+    async function callGreetingApi(prompt) {
+        const settings = getSettings();
+        const g = settings.greeting;
+
+        if (g.apiSource === 'openai') {
+            if (!g.customApiUrl) throw new Error('Custom API URL이 설정되지 않았습니다.');
+            const headers = { 'Content-Type': 'application/json' };
+            if (g.customApiKey) headers['Authorization'] = `Bearer ${g.customApiKey}`;
+            const body = {
+                model: g.customApiModel || 'gpt-4o',
+                messages: [{ role: 'user', content: prompt }],
+                max_tokens: g.customApiMaxTokens || 1000,
+            };
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), (g.customApiTimeout || 120) * 1000);
+            try {
+                const response = await fetch(g.customApiUrl, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(body),
+                    signal: controller.signal,
+                });
+                clearTimeout(timeoutId);
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errText.slice(0, 200)}`);
+                }
+                const data = await response.json();
+                const choice = data && data.choices && data.choices[0];
+                const result = choice ? (choice.message ? choice.message.content : choice.text) : '';
+                if (!result) throw new Error('Custom API 응답이 비어있습니다.');
+                return result;
+            } catch (error) {
+                clearTimeout(timeoutId);
+                throw error;
+            }
+        }
+
+        // SillyTavern에 이미 연결된 API를 그대로 사용
+        const ctx = getContext();
+        let switchedProfile = false;
+        let originalProfile = null;
+
+        try {
+            if (g.connectionProfile) {
+                const targetName = getConnectionProfileName(g.connectionProfile);
+                if (targetName) {
+                    originalProfile = getCurrentConnectionProfileName();
+                    if (originalProfile !== targetName) {
+                        switchedProfile = await switchConnectionProfile(targetName);
+                    }
+                }
+            }
+
+            const timeoutMs = (g.customApiTimeout || 120) * 1000;
+            function withTimeout(promise) {
+                let timer;
+                return Promise.race([
+                    promise,
+                    new Promise((_, reject) => {
+                        timer = setTimeout(() => reject(new Error(`API 시간 초과 (${Math.round(timeoutMs / 1000)}초)`)), timeoutMs);
+                    }),
+                ]).finally(() => clearTimeout(timer));
+            }
+
+            let result = '';
+            if (typeof ctx.generateRaw === 'function') {
+                result = await withTimeout(ctx.generateRaw({ prompt, maxContext: null, quietToLoud: false, skipWIAN: false, skipAN: false }));
+            } else if (typeof ctx.generateQuietPrompt === 'function') {
+                result = await withTimeout(ctx.generateQuietPrompt(prompt, false, false));
+            } else if (typeof window.generateQuietPrompt === 'function') {
+                result = await withTimeout(window.generateQuietPrompt(prompt, false, false));
+            }
+
+            if (!result) throw new Error('API 응답이 비어있습니다. (SillyTavern에 연결된 API가 있는지 확인해 주세요.)');
+            return result;
+        } finally {
+            if (switchedProfile && originalProfile) await switchConnectionProfile(originalProfile);
+        }
+    }
+
+    async function callGreetingApiWithRetry(prompt, retries) {
+        const maxRetries = retries || 2;
+        let lastError;
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                return await callGreetingApi(prompt);
+            } catch (error) {
+                lastError = error;
+                const message = String((error && error.message) || '').toLowerCase();
+                if (message.includes('시간 초과') || message.includes('timeout') || message.includes('abort')) break;
+                if (attempt < maxRetries - 1) {
+                    await new Promise((resolve) => setTimeout(resolve, 1500 * (attempt + 1)));
+                }
+            }
+        }
+        throw lastError;
+    }
+
+    function setGreetingBusy(isBusy) {
+        const btn = document.getElementById('cpl-greeting-generate');
+        if (!btn) return;
+        btn.disabled = isBusy;
+        btn.innerHTML = isBusy
+            ? '<i class="fa-solid fa-spinner fa-spin"></i> 생성 중...'
+            : '<i class="fa-solid fa-wand-magic-sparkles"></i> 인사말 생성';
+    }
+
+    async function generateGreetings() {
+        const data = getChatData();
+        const count = Math.min(Math.max(Number(data.greetingCount) || 1, 1), 8);
+        const prompt = buildGreetingPrompt(count, data.greetingTone, data.greetingExtra);
+
+        setGreetingBusy(true);
+        try {
+            const result = await callGreetingApiWithRetry(prompt, 2);
+            const parts = parseGreetingResponse(result, count);
+            if (!parts.length) throw new Error('생성된 내용이 없습니다.');
+
+            const newEntries = parts.map((text) => ({
+                id: `greet_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                text,
+                createdAt: new Date().toISOString(),
+            }));
+
+            data.greetings = [...newEntries, ...(Array.isArray(data.greetings) ? data.greetings : [])].slice(0, 30);
+            saveSettings();
+            renderGreetings();
+            showToast(`인사말 ${newEntries.length}개를 생성했습니다.`, 'success');
+        } catch (error) {
+            console.error('[Chat Persona Lore] Greeting generation failed', error);
+            showToast(`인사말 생성 실패: ${(error && error.message) || error}`, 'error');
+        } finally {
+            setGreetingBusy(false);
+        }
+    }
+
+    function copyGreeting(id) {
+        const data = getChatData();
+        const item = [...(data.greetings || []), ...(data.savedGreetings || [])].find((entry) => entry.id === id);
+        if (!item) return;
+        navigator.clipboard.writeText(item.text).then(
+            () => showToast('인사말을 복사했습니다.', 'success'),
+            () => showToast('복사에 실패했습니다.', 'error'),
+        );
+    }
+
+    function saveGreeting(id) {
+        const data = getChatData();
+        const item = (data.greetings || []).find((entry) => entry.id === id);
+        if (!item) return;
+        const alreadySaved = (data.savedGreetings || []).some((entry) => String(entry.text || '').trim() === String(item.text || '').trim());
+        if (alreadySaved) {
+            showToast('이미 저장된 인사말입니다.', 'info');
+            return;
+        }
+        data.savedGreetings = [{
+            id: `saved_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            text: item.text,
+            createdAt: item.createdAt || new Date().toISOString(),
+            savedAt: new Date().toISOString(),
+        }, ...(data.savedGreetings || [])].slice(0, 50);
+        saveSettings();
+        renderGreetings();
+        showToast('인사말을 저장했습니다.', 'success');
+    }
+
+    function deleteGreeting(id) {
+        const data = getChatData();
+        data.greetings = (data.greetings || []).filter((entry) => entry.id !== id);
+        saveSettings();
+        renderGreetings();
+    }
+
+    function deleteSavedGreeting(id) {
+        const data = getChatData();
+        data.savedGreetings = (data.savedGreetings || []).filter((entry) => entry.id !== id);
+        saveSettings();
+        renderGreetings();
+    }
+
+    function renderGreetings() {
+        const container = document.getElementById('cpl-greeting-list');
+        if (!container) return;
+        const data = getChatData();
+        const list = Array.isArray(data.greetings) ? data.greetings : [];
+        if (!list.length) {
+            container.innerHTML = '<div class="cpl-empty">아직 생성된 인사말이 없습니다.</div>';
+            return;
+        }
+        container.innerHTML = list.map((item) => `
+            <div class="cpl-greeting-item" data-id="${escapeHtml(item.id)}">
+                <pre class="cpl-greeting-text">${escapeHtml(item.text)}</pre>
+                <div class="cpl-greeting-actions">
+                    <button class="cpl-greeting-copy cpl-mini-button" type="button" data-id="${escapeHtml(item.id)}" title="복사"><i class="fa-solid fa-copy"></i></button>
+                    <button class="cpl-greeting-delete cpl-mini-button" type="button" data-id="${escapeHtml(item.id)}" title="삭제"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderGreetings() {
+        const container = document.getElementById('cpl-greeting-list');
+        if (!container) return;
+        const data = getChatData();
+        const list = Array.isArray(data.greetings) ? data.greetings : [];
+        const saved = Array.isArray(data.savedGreetings) ? data.savedGreetings : [];
+        if (!list.length && !saved.length) {
+            container.innerHTML = '<div class="cpl-empty">아직 생성되거나 저장된 인사말이 없습니다.</div>';
+            return;
+        }
+        const savedHtml = saved.length ? `
+            <div class="cpl-greeting-section-title"><i class="fa-solid fa-star"></i> 저장한 인사말</div>
+            ${saved.map((item) => `
+                <div class="cpl-greeting-item cpl-greeting-saved" data-id="${escapeHtml(item.id)}">
+                    <pre class="cpl-greeting-text">${escapeHtml(item.text)}</pre>
+                    <div class="cpl-greeting-actions">
+                        <button class="cpl-greeting-copy cpl-mini-button" type="button" data-id="${escapeHtml(item.id)}" title="복사"><i class="fa-solid fa-copy"></i></button>
+                        <button class="cpl-greeting-delete-saved cpl-mini-button" type="button" data-id="${escapeHtml(item.id)}" title="저장 삭제"><i class="fa-solid fa-bookmark-slash"></i></button>
+                    </div>
+                </div>
+            `).join('')}
+        ` : '';
+        const generatedHtml = list.length ? `
+            <div class="cpl-greeting-section-title"><i class="fa-solid fa-clock-rotate-left"></i> 생성된 인사말</div>
+            ${list.map((item) => `
+                <div class="cpl-greeting-item" data-id="${escapeHtml(item.id)}">
+                    <pre class="cpl-greeting-text">${escapeHtml(item.text)}</pre>
+                    <div class="cpl-greeting-actions">
+                        <button class="cpl-greeting-copy cpl-mini-button" type="button" data-id="${escapeHtml(item.id)}" title="복사"><i class="fa-solid fa-copy"></i></button>
+                        <button class="cpl-greeting-save cpl-mini-button" type="button" data-id="${escapeHtml(item.id)}" title="저장"><i class="fa-solid fa-star"></i></button>
+                        <button class="cpl-greeting-delete cpl-mini-button" type="button" data-id="${escapeHtml(item.id)}" title="삭제"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
+            `).join('')}
+        ` : '<div class="cpl-empty">생성된 인사말이 없습니다.</div>';
+        container.innerHTML = savedHtml + generatedHtml;
+    }
+
+    function toggleGreetingApiSourceUI() {
+        const source = $('#cpl-greeting-api-source').val();
+        $('#cpl-greeting-st-settings').toggle(source !== 'openai');
+        $('#cpl-greeting-openai-settings').toggle(source === 'openai');
+    }
+
+    function populateGreetingConnectionProfiles() {
+        const select = document.getElementById('cpl-greeting-connection-profile');
+        if (!select) return;
+        const profiles = getConnectionProfiles();
+        select.innerHTML = '<option value="">현재 API 연결 사용</option>' +
+            profiles.map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name || p.id)}</option>`).join('');
+        const settings = getSettings();
+        if (settings.greeting.connectionProfile) select.value = settings.greeting.connectionProfile;
     }
 
     function estimateTokens(text) {
@@ -950,6 +1429,7 @@
                 <div class="cpl-tabs">
                     <button class="cpl-tab active" type="button" data-page="quick"><i class="fa-solid fa-pen"></i> Quick Edit</button>
                     <button class="cpl-tab" type="button" data-page="detail"><i class="fa-solid fa-layer-group"></i> Detail Overrides</button>
+                    <button class="cpl-tab" type="button" data-page="greeting"><i class="fa-solid fa-message"></i> Greetings</button>
                 </div>
 
                 <section id="cpl-page-quick" class="cpl-page active">
@@ -1003,6 +1483,69 @@
                     <div id="cpl-detail-entries" class="cpl-detail-list"></div>
                 </section>
 
+                <section id="cpl-page-greeting" class="cpl-page">
+                    <div class="cpl-card cpl-greeting-panel">
+                        <div class="cpl-card-title">Greeting Generator</div>
+                        <div class="cpl-card-note">현재 Quick Edit와 Detail Overrides 내용을 반영해서 첫 인사말 후보를 생성합니다.</div>
+
+                        <div class="cpl-split-row">
+                            <label>생성 개수
+                                <input id="cpl-greeting-count" type="number" min="1" max="8" step="1">
+                            </label>
+                            <label>API 연결
+                                <select id="cpl-greeting-api-source">
+                                    <option value="sillytavern">SillyTavern 현재 연결 사용</option>
+                                    <option value="openai">OpenAI 호환 API 직접 입력</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <div id="cpl-greeting-st-settings">
+                            <label>연결 프로필
+                                <select id="cpl-greeting-connection-profile">
+                                    <option value="">현재 API 연결 사용</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <div id="cpl-greeting-openai-settings" class="cpl-greeting-api-box">
+                            <label>API URL
+                                <input id="cpl-greeting-custom-url" type="text" placeholder="https://api.openai.com/v1/chat/completions">
+                            </label>
+                            <div class="cpl-split-row">
+                                <label>Model
+                                    <input id="cpl-greeting-custom-model" type="text" placeholder="gpt-4o">
+                                </label>
+                                <label>Max Tokens
+                                    <input id="cpl-greeting-max-tokens" type="number" min="128" max="8000" step="64">
+                                </label>
+                            </div>
+                            <div class="cpl-split-row">
+                                <label>API Key
+                                    <input id="cpl-greeting-custom-key" type="password" placeholder="sk-...">
+                                </label>
+                                <label>Timeout (sec)
+                                    <input id="cpl-greeting-timeout" type="number" min="10" max="600" step="5">
+                                </label>
+                            </div>
+                        </div>
+
+                        <label>분위기 / 스타일
+                            <input id="cpl-greeting-tone" type="text" placeholder="예: 어둡고 긴장감 있게, 달콤한 로맨스, 미스터리한 첫 만남">
+                        </label>
+                        <label>추가 출력 지시
+                            <textarea id="cpl-greeting-extra" placeholder="예: 2인칭으로 시작하지 말기, 장소 묘사를 먼저 넣기, 대사는 한 줄만 포함하기"></textarea>
+                        </label>
+
+                        <div class="cpl-greeting-controls">
+                            <button id="cpl-greeting-generate" class="cpl-button cpl-primary" type="button"><i class="fa-solid fa-wand-magic-sparkles"></i> 그리팅 생성</button>
+                            <button id="cpl-greeting-clear" class="cpl-button cpl-danger" type="button"><i class="fa-solid fa-trash"></i> 목록 비우기</button>
+                        </div>
+                    </div>
+
+                    <div id="cpl-greeting-list" class="cpl-greeting-list"></div>
+                </section>
+
                 <div class="cpl-preview-wrap">
                     <div class="cpl-preview-bar"><i class="fa-solid fa-terminal"></i> Injection Preview</div>
                     <pre id="cpl-preview" class="cpl-preview"></pre>
@@ -1031,6 +1574,18 @@
         renderSavedPresets();
         renderCustomWorlds();
         renderDetailEntries();
+        $('#cpl-greeting-count').val(String(data.greetingCount || 1));
+        $('#cpl-greeting-tone').val(data.greetingTone || '');
+        $('#cpl-greeting-extra').val(data.greetingExtra || '');
+        $('#cpl-greeting-api-source').val(settings.greeting.apiSource || 'sillytavern');
+        $('#cpl-greeting-custom-url').val(settings.greeting.customApiUrl || '');
+        $('#cpl-greeting-custom-key').val(settings.greeting.customApiKey || '');
+        $('#cpl-greeting-custom-model').val(settings.greeting.customApiModel || '');
+        $('#cpl-greeting-max-tokens').val(String(settings.greeting.customApiMaxTokens || 1000));
+        $('#cpl-greeting-timeout').val(String(settings.greeting.customApiTimeout || 120));
+        populateGreetingConnectionProfiles();
+        toggleGreetingApiSourceUI();
+        renderGreetings();
         updatePreview();
     }
 
@@ -1059,6 +1614,11 @@
             $('.cpl-page').removeClass('active');
             $(`#cpl-page-${page}`).addClass('active');
             if (page === 'detail') renderDetailEntries();
+            if (page === 'greeting') {
+                populateGreetingConnectionProfiles();
+                toggleGreetingApiSourceUI();
+                renderGreetings();
+            }
         });
 
         $(document).on('change', '#cpl-enabled', function () {
@@ -1125,6 +1685,54 @@
 
         $(document).on('click', '#cpl-load-lorebook', function () {
             loadSelectedLorebook();
+        });
+
+        $(document).on('change input', '#cpl-greeting-count, #cpl-greeting-tone, #cpl-greeting-extra', function () {
+            const data = getChatData();
+            data.greetingCount = Math.min(Math.max(Number($('#cpl-greeting-count').val()) || 1, 1), 8);
+            data.greetingTone = $('#cpl-greeting-tone').val();
+            data.greetingExtra = $('#cpl-greeting-extra').val();
+            saveSettings();
+        });
+
+        $(document).on('change input', '#cpl-greeting-api-source, #cpl-greeting-connection-profile, #cpl-greeting-custom-url, #cpl-greeting-custom-key, #cpl-greeting-custom-model, #cpl-greeting-max-tokens, #cpl-greeting-timeout', function () {
+            const greeting = getSettings().greeting;
+            greeting.apiSource = $('#cpl-greeting-api-source').val() || 'sillytavern';
+            greeting.connectionProfile = $('#cpl-greeting-connection-profile').val() || '';
+            greeting.customApiUrl = $('#cpl-greeting-custom-url').val() || '';
+            greeting.customApiKey = $('#cpl-greeting-custom-key').val() || '';
+            greeting.customApiModel = $('#cpl-greeting-custom-model').val() || '';
+            greeting.customApiMaxTokens = Number($('#cpl-greeting-max-tokens').val()) || 1000;
+            greeting.customApiTimeout = Number($('#cpl-greeting-timeout').val()) || 120;
+            saveSettings();
+            toggleGreetingApiSourceUI();
+        });
+
+        $(document).on('click', '#cpl-greeting-generate', generateGreetings);
+
+        $(document).on('click', '.cpl-greeting-copy', function () {
+            copyGreeting(this.dataset.id);
+        });
+
+        $(document).on('click', '.cpl-greeting-save', function () {
+            saveGreeting(this.dataset.id);
+        });
+
+        $(document).on('click', '.cpl-greeting-delete', function () {
+            deleteGreeting(this.dataset.id);
+        });
+
+        $(document).on('click', '.cpl-greeting-delete-saved', function () {
+            deleteSavedGreeting(this.dataset.id);
+        });
+
+        $(document).on('click', '#cpl-greeting-clear', function () {
+            const data = getChatData();
+            if (!Array.isArray(data.greetings) || !data.greetings.length) return;
+            if (!confirm('생성된 인사말 목록을 모두 비울까요?')) return;
+            data.greetings = [];
+            saveSettings();
+            renderGreetings();
         });
 
         $(document).on('change', '.cpl-detail-enabled', function () {

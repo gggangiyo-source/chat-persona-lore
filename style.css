@@ -405,6 +405,7 @@
 
 .cpl-card input,
 .cpl-card select,
+.cpl-card textarea,
 .cpl-field input,
 .cpl-field textarea {
     width: 100%;
@@ -424,6 +425,13 @@
     padding: 6px 9px;
 }
 
+.cpl-card textarea {
+    min-height: 92px;
+    padding: 8px 10px;
+    resize: vertical;
+    line-height: 1.55;
+}
+
 .cpl-field {
     padding: 11px;
     gap: 7px;
@@ -437,6 +445,7 @@
 
 .cpl-card input:focus,
 .cpl-card select:focus,
+.cpl-card textarea:focus,
 .cpl-field input:focus,
 .cpl-field textarea:focus {
     outline: none;
@@ -453,7 +462,8 @@
 
 .cpl-field textarea::placeholder,
 .cpl-field input::placeholder,
-.cpl-card input::placeholder {
+.cpl-card input::placeholder,
+.cpl-card textarea::placeholder {
     color: var(--cpl-gray-400);
 }
 
@@ -694,6 +704,91 @@
     box-shadow: 0 0 0 3px rgba(255, 126, 194, 0.22);
 }
 
+/* ---------- Greeting generator ---------- */
+
+.cpl-split-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.cpl-greeting-panel {
+    gap: 10px;
+}
+
+.cpl-greeting-api-box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    border: 1px dashed var(--cpl-lav-200);
+    border-radius: var(--cpl-r6);
+    background: var(--cpl-lav-50);
+}
+
+.cpl-greeting-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-top: 3px;
+}
+
+.cpl-greeting-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cpl-greeting-section-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 4px;
+    color: var(--cpl-lav-600);
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.cpl-greeting-item {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 11px;
+    border: 1px solid var(--cpl-gray-200);
+    border-radius: var(--cpl-r8);
+    background: var(--cpl-white);
+    transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.cpl-greeting-saved {
+    border-color: var(--cpl-lav-300);
+    background: var(--cpl-lav-50);
+}
+
+.cpl-greeting-text {
+    min-width: 0;
+    max-height: 220px;
+    margin: 0;
+    overflow: auto;
+    color: var(--cpl-gray-800);
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: var(--cpl-font-mono);
+    font-size: 12px;
+    line-height: 1.58;
+}
+
+.cpl-greeting-actions {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+
 /* ---------- Preview ---------- */
 
 .cpl-preview-wrap {
@@ -804,6 +899,15 @@
     .cpl-detail-actions {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .cpl-split-row,
+    .cpl-greeting-item {
+        grid-template-columns: 1fr;
+    }
+
+    .cpl-greeting-actions {
+        justify-content: flex-end;
     }
 
     .cpl-import-export-row {
